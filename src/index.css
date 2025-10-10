@@ -1,0 +1,304 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 80 20% 15%;            /* DenTech dark text */
+
+    --card: 0 0% 96%;
+    --card-foreground: 80 25% 20%;       /* DenTech dark card text */
+
+    --popover: 0 0% 96%;
+    --popover-foreground: 80 25% 20%;    /* DenTech dark popover text */
+
+    --primary: 220 70% 35%;            /* WF Cirúrgicos azul royal */
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 215 65% 45%;           /* WF Cirúrgicos azul mais claro */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 215 20% 92%;                 /* WF Cirúrgicos light muted */
+    --muted-foreground: 220 70% 25%;     /* WF Cirúrgicos muted text */
+
+    --accent: 210 60% 55%;              /* WF Cirúrgicos azul accent */
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 215 20% 88%;                /* WF Cirúrgicos light border */
+    --input: 215 15% 94%;                 /* WF Cirúrgicos light input */
+    --ring: 220 70% 35%;                  /* WF Cirúrgicos ring color */
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 220 70% 25%;    /* WF Cirúrgicos sidebar text */
+    --sidebar-primary: 220 70% 35%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 215 15% 90%;         /* WF Cirúrgicos light sidebar accent */
+    --sidebar-accent-foreground: 220 70% 25%; /* WF Cirúrgicos sidebar accent text */
+    --sidebar-border: 215 20% 85%;         /* WF Cirúrgicos sidebar border */
+    --sidebar-ring: 220 70% 35%;
+
+    /* WF Cirúrgicos azul royal gradients - Light mode */
+    --gradient-primary: linear-gradient(135deg, hsl(220 70% 35%), hsl(215 65% 45%), hsl(210 60% 55%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 65% 45%), hsl(210 60% 55%), hsl(205 55% 65%));
+    --gradient-success: linear-gradient(135deg, hsl(220 70% 35%), hsl(215 65% 45%));
+    --gradient-warning: linear-gradient(135deg, hsl(210 60% 55%), hsl(205 55% 65%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 84.2% 60.2%), hsl(350 100% 65%));
+    --gradient-whatsapp: linear-gradient(135deg, hsl(220 70% 35%), hsl(215 65% 45%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 94%), hsl(215 15% 96%), hsl(210 20% 98%));
+    --gradient-glow: radial-gradient(600px circle at 50% 50%, hsl(220 70% 35%/0.15), transparent);
+    --gradient-premium: linear-gradient(135deg, hsl(0 0% 96%), hsl(215 15% 98%), hsl(210 20% 96%));
+    --gradient-header: linear-gradient(90deg, hsl(0 0% 96%), hsl(215 15% 98%), hsl(210 20% 96%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 96%), hsl(215 15% 98%), hsl(210 20% 96%));
+    --gradient-glass: linear-gradient(145deg, hsl(220 70% 35%/0.08), hsl(215 65% 45%/0.05));
+    --gradient-aurora: linear-gradient(45deg, hsl(220 70% 35%/0.2), hsl(215 65% 45%/0.15), hsl(210 60% 55%/0.1));
+    
+    /* WF Cirúrgicos light mode shadows */
+    --shadow-premium: 0 20px 40px -12px rgba(59, 130, 246, 0.15); /* WF Cirúrgicos azul shadow */
+    --shadow-glow: 0 0 40px hsl(220 70% 35% / 0.25);
+    --shadow-card: 0 8px 32px -8px hsl(220 70% 35% / 0.12);
+    --shadow-qr: 0 0 60px hsl(220 70% 35% / 0.3);
+    --shadow-glass: 0 8px 32px 0 rgba(59, 130, 246, 0.1);
+    --shadow-floating: 0 20px 60px -12px hsl(220 70% 35% / 0.2);
+    --shadow-inset: inset 0 2px 4px 0 rgba(59, 130, 246, 0.05);
+    --shadow-neon: 0 0 20px hsl(220 70% 35%/0.4), 0 0 40px hsl(215 65% 45%/0.3);
+    
+    /* Light mode backdrop blur */
+    --blur-glass: backdrop-blur(8px);
+    --blur-heavy: backdrop-blur(16px);
+  }
+
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 220 80% 50%;             /* WF Cirúrgicos brighter azul for dark mode */
+    --primary-foreground: 220 20% 8%;
+
+    --secondary: 215 75% 60%;           /* WF Cirúrgicos brighter azul for dark mode */
+    --secondary-foreground: 215 20% 8%;
+
+    --muted: 0 0% 18%;
+    --muted-foreground: 220 80% 80%;      /* WF Cirúrgicos bright muted text for dark */
+
+    --accent: 210 70% 65%;              /* WF Cirúrgicos brighter azul for dark mode */
+    --accent-foreground: 210 20% 8%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 25%;
+    --input: 0 0% 20%;
+    --ring: 220 80% 50%;                  /* WF Cirúrgicos ring for dark mode */
+    
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 220 80% 50%;
+    --sidebar-primary-foreground: 0 0% 9%;
+    --sidebar-accent: 0 0% 15%;
+    --sidebar-accent-foreground: 220 80% 80%; /* WF Cirúrgicos sidebar accent text for dark */
+    --sidebar-border: 0 0% 20%;
+    --sidebar-ring: 220 80% 50%;
+
+    /* WF Cirúrgicos azul royal gradients - Dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(220 80% 50%), hsl(215 75% 60%), hsl(210 70% 65%));
+    --gradient-secondary: linear-gradient(135deg, hsl(215 75% 60%), hsl(210 70% 65%), hsl(205 65% 70%));
+    --gradient-success: linear-gradient(135deg, hsl(220 80% 50%), hsl(215 75% 60%));
+    --gradient-warning: linear-gradient(135deg, hsl(210 70% 65%), hsl(205 65% 70%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 84.2% 60.2%), hsl(350 100% 65%));
+    --gradient-whatsapp: linear-gradient(135deg, hsl(220 80% 50%), hsl(215 75% 60%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 8%), hsl(215 30% 8%), hsl(210 35% 10%));
+    --gradient-glow: radial-gradient(600px circle at 50% 50%, hsl(220 80% 50%/0.25), transparent);
+    --gradient-premium: linear-gradient(135deg, hsl(0 0% 5%), hsl(215 30% 6%), hsl(210 35% 8%));
+    --gradient-header: linear-gradient(90deg, hsl(0 0% 6%), hsl(215 30% 6%), hsl(210 35% 8%));
+    --gradient-sidebar: linear-gradient(180deg, hsl(0 0% 5%), hsl(215 30% 6%), hsl(210 35% 8%));
+    --gradient-glass: linear-gradient(145deg, hsl(220 80% 50%/0.15), hsl(215 75% 60%/0.08));
+    --gradient-aurora: linear-gradient(45deg, hsl(220 80% 50%/0.35), hsl(215 75% 60%/0.25), hsl(210 70% 65%/0.15));
+    
+    /* WF Cirúrgicos dark mode shadows */
+    --shadow-premium: 0 20px 40px -12px rgba(0, 0, 0, 0.8);
+    --shadow-glow: 0 0 40px hsl(220 80% 50% / 0.4);
+    --shadow-card: 0 8px 32px -8px hsl(220 80% 50% / 0.2);
+    --shadow-qr: 0 0 60px hsl(220 80% 50% / 0.5);
+    --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --shadow-floating: 0 20px 60px -12px hsl(220 80% 50% / 0.4);
+    --shadow-inset: inset 0 2px 4px 0 rgba(0, 0, 0, 0.1);
+    --shadow-neon: 0 0 20px hsl(220 80% 50%/0.7), 0 0 40px hsl(215 75% 60%/0.5);
+    
+    /* Backdrop blur effects */
+    --blur-glass: backdrop-blur(12px);
+    --blur-heavy: backdrop-blur(20px);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background: var(--gradient-premium);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Premium scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary)/0.8));
+    border-radius: 4px;
+    border: 2px solid hsl(var(--muted));
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, hsl(var(--primary)/0.9), hsl(var(--primary)));
+  }
+
+  /* Glass morphism utilities - responsivo ao tema */
+  .glass {
+    background: var(--gradient-glass);
+    backdrop-filter: var(--blur-glass);
+    border: 1px solid hsl(var(--primary)/0.2);
+  }
+  
+  .glass-heavy {
+    background: hsl(var(--primary)/0.08);
+    backdrop-filter: var(--blur-heavy);
+    border: 1px solid hsl(var(--primary)/0.15);
+  }
+  
+  /* Premium effects */
+  .glow-primary {
+    box-shadow: var(--shadow-neon);
+  }
+  
+  .floating {
+    box-shadow: var(--shadow-floating);
+  }
+  
+  .aurora {
+    background: var(--gradient-aurora);
+  }
+  
+  /* Zap animation effects */
+  @keyframes zap-glow {
+    0%, 100% { 
+      filter: drop-shadow(0 0 4px hsl(220 70% 35% / 0.4));
+      transform: scale(1);
+    }
+    50% { 
+      filter: drop-shadow(0 0 8px hsl(220 70% 35% / 0.6));
+      transform: scale(1.02);
+    }
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px) rotate(0deg);
+    }
+    25% {
+      transform: translateY(-10px) rotate(5deg);
+    }
+    50% {
+      transform: translateY(-15px) rotate(-5deg);
+    }
+    75% {
+      transform: translateY(-8px) rotate(3deg);
+    }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+  
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes slide-down {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+      max-height: 0;
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      max-height: 200px;
+    }
+  }
+  
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .zap-glow {
+    animation: zap-glow 3s ease-in-out infinite;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .animate-shake {
+    animation: shake 0.5s ease-in-out;
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out forwards;
+  }
+  
+  .animate-slide-down {
+    animation: slide-down 0.4s ease-out forwards;
+  }
+  
+  .animate-scale-in {
+    animation: scale-in 0.8s ease-out forwards;
+  }
+
+  /* Utility classes */
+  .hover-scale {
+    @apply transition-transform duration-200 hover:scale-105;
+  }
+}

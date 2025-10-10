@@ -1,0 +1,216 @@
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Plus } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+
+interface CreateLeadDialogProps {
+  onLeadCreated?: () => void;
+}
+
+export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    origin: 'whatsapp',
+    segment: 'varejo',
+    category: 'varejo',
+    order_number: ''
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.tenant_id) {
+      toast.error('Erro: usuário não autenticado');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Get default pipeline and "Novo Lead" stage
+      const { data: pipelines } = await supabase
+        .from('pipelines')
+        .select('id')
+        .eq('tenant_id', user.tenant_id)
+        .eq('is_default', true)
+        .limit(1)
+        .single();
+
+      if (!pipelines) {
+        toast.error('Pipeline padrão não encontrado');
+        return;
+      }
+
+      // Get first stage of the pipeline (ordered by order)
+      const { data: stage } = await supabase
+        .from('stages')
+        .select('id')
+        .eq('pipeline_id', pipelines.id)
+        .order('order', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (!stage) {
+        toast.error('Nenhum stage encontrado no pipeline padrão');
+        return;
+      }
+
+      // Create lead
+      const { data: lead, error } = await supabase
+        .from('leads')
+        .insert({
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email || null,
+          origin: formData.origin,
+          tenant_id: user.tenant_id,
+          pipeline_id: pipelines.id,
+          stage_id: stage.id,
+          status: 'novo_lead',
+          assigned_to: user.id, // CORREÇÃO: Atribuir ao usuário atual
+          owner_user_id: user.id, // CORREÇÃO: Definir como dono
+          category: formData.category, // NOVO: Categoria do lead
+          is_public: false, // NOVO: Por padrão, lead é privado
+          order_number: formData.order_number || null, // NOVO: Número do pedido
+          fields: {
+            segment: formData.segment
+          }
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log event
+      await supabase.from('lead_events').insert({
+        tenant_id: user.tenant_id,
+        lead_id: lead.id,
+        type: 'lead.created',
+        actor: 'user',
+        user_id: user.id, // CORREÇÃO: Adicionar user_id
+        data: { origin: formData.origin, segment: formData.segment }
+      });
+
+      toast.success('Lead criado com sucesso!');
+      setFormData({ name: '', phone: '', email: '', origin: 'whatsapp', segment: 'varejo', category: 'varejo', order_number: '' });
+      setOpen(false);
+      onLeadCreated?.();
+    } catch (error: any) {
+      console.error('Error creating lead:', error);
+      toast.error(error.message || 'Erro ao criar lead');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button>
+          <Plus className="h-4 w-4 mr-2" />
+          Novo Lead
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Criar Novo Lead</DialogTitle>
+          <DialogDescription>
+            Preencha os dados para adicionar um novo lead ao sistema
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome *</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Nome do lead"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="phone">Telefone *</Label>
+            <Input
+              id="phone"
+              value={formData.phone}
+              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+55 11 99999-9999"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              placeholder="email@exemplo.com"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="order_number">Número do Pedido</Label>
+            <Input
+              id="order_number"
+              value={formData.order_number}
+              onChange={(e) => setFormData(prev => ({ ...prev, order_number: e.target.value }))}
+              placeholder="Ex: PED-2024-001"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="origin">Origem do Lead *</Label>
+            <Select value={formData.origin} onValueChange={(value) => setFormData(prev => ({ ...prev, origin: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
+                <SelectItem value="facebook">Facebook</SelectItem>
+                <SelectItem value="site">Site</SelectItem>
+                <SelectItem value="indicacao">Indicação</SelectItem>
+                <SelectItem value="outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="segment">Segmento *</Label>
+            <Select value={formData.segment} onValueChange={(value) => setFormData(prev => ({ ...prev, segment: value }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="varejo">Varejo</SelectItem>
+                <SelectItem value="distribuidor">Distribuidor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? 'Criando...' : 'Criar Lead'}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
