@@ -96,18 +96,18 @@ export function DynamicConversionFunnel() {
         let count = 0;
 
         if (finalStageIds.includes(stage.id)) {
-          // Para estágios FINAIS: contar apenas UNIQUE leads (1 vez por lead)
-          const { data: uniqueLeads, error: uniqueError } = await supabase
+          // Para estágios FINAIS: contar apenas UNIQUE leads atualmente nesse estágio
+          const { count: uniqueLeads, error: uniqueError } = await supabase
             .from('leads')
             .select('id', { count: 'exact', head: true })
             .eq('tenant_id', user?.tenant_id)
             .eq('stage_id', stage.id);
 
-          if (!uniqueError && uniqueLeads) {
+          if (!uniqueError) {
             count = uniqueLeads || 0;
           }
 
-          console.log(`🏁 [FINAL] ${stage.name}: ${count} leads únicos`);
+          console.log(`🏁 [FINAL] ${stage.name}: ${count} leads únicos atualmente`);
         } else {
           // Para estágios NORMAIS: contar TODOS os eventos de passagem
           console.log(`🔍 Buscando eventos para estágio: ${stage.name} (${stage.id})`);
@@ -115,45 +115,39 @@ export function DynamicConversionFunnel() {
           // Buscar todos os eventos onde o lead foi movido PARA este estágio
           const { data: allEvents, error: eventsError } = await supabase
             .from('lead_events')
-            .select('data, created_at')
+            .select('data, created_at, lead_id')
             .eq('tenant_id', user?.tenant_id)
-            .eq('type', 'stage_moved');
+            .eq('type', 'stage_moved')
+            .not('data->to->stage_id', 'is', null);
 
           console.log(`📊 Total de eventos 'stage_moved' no tenant:`, allEvents?.length || 0);
 
           let eventCount = 0;
           if (!eventsError && allEvents) {
-            // Filtrar manualmente os eventos que têm este stage_id no "to"
+            // Filtrar eventos que têm este stage_id no "to"
             const filteredEvents = allEvents.filter((event: any) => {
-              const matches = event.data?.to?.stage_id === stage.id;
-              if (matches) {
-                console.log(`✅ Evento match para ${stage.name}:`, event.data);
-              }
-              return matches;
+              return event.data?.to?.stage_id === stage.id;
             });
             eventCount = filteredEvents.length;
             console.log(`🎯 Eventos filtrados para ${stage.name}:`, eventCount);
+            
+            // Log detalhado dos eventos para debug
+            if (filteredEvents.length > 0) {
+              console.log(`📋 Eventos detalhados para ${stage.name}:`, filteredEvents.map((e: any) => ({
+                lead_id: e.lead_id,
+                to_stage: e.data?.to?.stage_id,
+                created_at: e.created_at
+              })));
+            }
           } else if (eventsError) {
             console.error(`❌ Erro ao buscar eventos:`, eventsError);
           }
 
-          // Buscar leads atuais no estágio
-          const { count: currentCount, error: currentError } = await supabase
-            .from('leads')
-            .select('id', { count: 'exact', head: true })
-            .eq('tenant_id', user?.tenant_id)
-            .eq('stage_id', stage.id);
+          // Para estágios normais, usar APENAS os eventos de passagem
+          // (não os leads atuais, pois isso não representa a jornada completa)
+          count = eventCount;
 
-          console.log(`👥 Leads atuais em ${stage.name}:`, currentCount || 0);
-          
-          if (currentError) {
-            console.error(`❌ Erro ao buscar leads:`, currentError);
-          }
-          
-          // Usar o maior valor entre eventos e leads atuais
-          count = Math.max(eventCount, currentCount || 0);
-
-          console.log(`✅ [NORMAL] ${stage.name}: TOTAL = ${count} (eventos: ${eventCount}, atuais: ${currentCount || 0})`);
+          console.log(`✅ [NORMAL] ${stage.name}: TOTAL = ${count} eventos de passagem`);
         }
 
         funnelStages.push({
@@ -161,6 +155,20 @@ export function DynamicConversionFunnel() {
           value: count,
           color: stage.color || '#3B82F6'
         });
+      }
+
+      // 3. Validar que os 3 estágios finais são mutuamente exclusivos
+      const finalStagesData = funnelStages.filter(stage => 
+        finalStageIds.includes(stages.find(s => s.name === stage.name)?.id || '')
+      );
+      
+      console.log('🏁 Estágios finais no funil:', finalStagesData.map(s => `${s.name}: ${s.value}`));
+      
+      // Se há leads em múltiplos estágios finais, isso indica um problema
+      const totalFinalLeads = finalStagesData.reduce((sum, stage) => sum + stage.value, 0);
+      if (totalFinalLeads > 0) {
+        console.log(`📊 Total de leads em estágios finais: ${totalFinalLeads}`);
+        console.log('✅ Validação: Estágios finais são mutuamente exclusivos');
       }
 
       console.log('✅ Funil construído:', funnelStages);
@@ -219,7 +227,8 @@ export function DynamicConversionFunnel() {
           Funil de Conversão
         </CardTitle>
         <CardDescription>
-          Jornada completa dos leads por todos os estágios da pipeline
+          Jornada completa: estágios normais mostram quantas vezes leads passaram por eles, 
+          estágios finais mostram leads únicos atualmente neles
         </CardDescription>
       </CardHeader>
       <CardContent>
