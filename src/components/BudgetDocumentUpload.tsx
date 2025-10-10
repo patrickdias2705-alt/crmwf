@@ -92,10 +92,21 @@ export function BudgetDocumentUpload({ leadId, leadName, onDocumentUploaded }: B
         // SALVAR NO BANCO
         try {
           console.log('💾 Salvando no lead...');
+          
+          // IMPORTANTE: Buscar os dados atuais do lead primeiro para não perder a classificação
+          const { data: currentLead } = await supabase
+            .from('leads')
+            .select('fields')
+            .eq('id', leadId)
+            .single();
+          
+          console.log('📋 Dados atuais do lead:', currentLead?.fields);
+          
           const { error: updateError } = await supabase
             .from('leads')
             .update({ 
               fields: {
+                ...currentLead?.fields, // PRESERVAR DADOS EXISTENTES (incluindo classificação)
                 budget_file_base64: base64,
                 budget_file_name: formData.file.name,
                 budget_file_size: formData.file.size,

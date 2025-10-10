@@ -9,6 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { CreateLeadDialog } from '@/components/CreateLeadDialog';
 import { ManageStagesDialog } from '@/components/ManageStagesDialog';
+import { LeadDetailsModal } from '@/components/LeadDetailsModal';
 import { useTenantView } from '@/contexts/TenantViewContext';
 
 interface Stage {
@@ -39,6 +40,8 @@ export default function Pipelines() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (user?.tenant_id) {
@@ -197,6 +200,11 @@ export default function Pipelines() {
     return [];
   };
 
+  const handleLeadDoubleClick = (lead: Lead) => {
+    setSelectedLead(lead);
+    setModalOpen(true);
+  };
+
   const getTotalStats = () => {
     return {
       totalLeads: leads.length,
@@ -304,6 +312,7 @@ export default function Pipelines() {
                 onMoveCard={handleMoveCard}
                 getStageStats={getStageStats}
                 onLeadUpdated={loadData}
+                onLeadDoubleClick={handleLeadDoubleClick}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground p-6">
@@ -313,6 +322,15 @@ export default function Pipelines() {
             )}
           </CardContent>
         </Card>
+
+        {/* Modal de Detalhes do Lead */}
+        <LeadDetailsModal
+          lead={selectedLead}
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          onLeadUpdated={loadData}
+          formatTags={formatTags}
+        />
       </div>
     </Layout>
   );

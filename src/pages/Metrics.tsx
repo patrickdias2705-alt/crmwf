@@ -202,7 +202,7 @@ export default function Metrics() {
 
       // Primeiro: tentar buscar da tabela sales
       try {
-        const { data: salesData } = await supabase
+        const { data: salesData } = await (supabase as any)
           .from('sales')
           .select('amount')
           .eq('tenant_id', user?.tenant_id);
@@ -220,7 +220,7 @@ export default function Metrics() {
       // Fallback: buscar vendas do fields dos leads
       if (salesCount === 0) {
         try {
-          const { data: leadsData } = await supabase
+          const { data: leadsData } = await (supabase as any)
             .from('leads')
             .select('fields')
             .eq('tenant_id', user?.tenant_id)
@@ -228,7 +228,7 @@ export default function Metrics() {
             .eq('fields->sold', true);
 
           if (leadsData && leadsData.length > 0) {
-            totalSold = leadsData.reduce((sum, lead) => sum + (Number(lead.fields?.sold_amount) || 0), 0);
+            totalSold = leadsData.reduce((sum: number, lead: any) => sum + (Number(lead.fields?.sold_amount) || 0), 0);
             salesCount = leadsData.length;
             avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
             console.log('💰 VENDAS (fallback fields):', { totalSold, salesCount, avgTicket });
@@ -245,10 +245,10 @@ export default function Metrics() {
       let totalLeadsCount = 0;
       try {
         const { count } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', user?.tenant_id);
-
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', user?.tenant_id);
+      
         totalLeadsCount = count || 0;
       } catch (error) {
         console.error('Erro ao buscar leads:', error);
@@ -258,10 +258,10 @@ export default function Metrics() {
       let messagesCount = 0;
       try {
         const { count } = await supabase
-          .from('messages')
+        .from('messages')
           .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', user?.tenant_id);
-
+        .eq('tenant_id', user?.tenant_id);
+      
         messagesCount = count || 0;
       } catch (error) {
         console.error('Erro ao buscar mensagens:', error);
@@ -270,17 +270,17 @@ export default function Metrics() {
       // Buscar qualificados
       let qualifiedCount = 0;
       try {
-        const { data: qualifiedStages } = await supabase
-          .from('stages')
-          .select('id')
-          .eq('tenant_id', user?.tenant_id)
-          .ilike('name', '%qualificado%');
+      const { data: qualifiedStages } = await supabase
+        .from('stages')
+        .select('id')
+        .eq('tenant_id', user?.tenant_id)
+        .ilike('name', '%qualificado%');
 
         if (qualifiedStages && qualifiedStages.length > 0) {
           const { count } = await supabase
-            .from('leads')
-            .select('*', { count: 'exact', head: true })
-            .eq('tenant_id', user?.tenant_id)
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', user?.tenant_id)
             .in('stage_id', qualifiedStages.map(s => s.id));
           qualifiedCount = count || 0;
         }
@@ -293,7 +293,7 @@ export default function Metrics() {
       let openBudgetsValue = 0;
       try {
         // 1. Buscar IDs de leads que já foram marcados como vendidos (tabela sales)
-        const { data: soldLeadIds } = await supabase
+        const { data: soldLeadIds } = await (supabase as any)
           .from('sales')
           .select('lead_id')
           .eq('tenant_id', user?.tenant_id);
@@ -302,13 +302,13 @@ export default function Metrics() {
 
         // 2. Buscar IDs de estágios finais (Dinheiro no Bolso, Vendido, etc)
         const { data: finalStages } = await supabase
-          .from('stages')
-          .select('id')
-          .eq('tenant_id', user?.tenant_id)
+        .from('stages')
+        .select('id')
+        .eq('tenant_id', user?.tenant_id)
           .or('name.ilike.%dinheiro no bolso%,name.ilike.%vendido%,name.ilike.%fechado%,name.ilike.%ganho%');
 
         const finalStageIds = finalStages?.map(s => s.id) || [];
-
+      
         // 3. Buscar leads com orçamento
         const { data: leadsWithBudget } = await supabase
           .from('leads')
@@ -320,7 +320,7 @@ export default function Metrics() {
           // 4. Filtrar apenas os que TÊM orçamento MAS:
           //    - NÃO estão em estágios finais
           //    - NÃO foram marcados como vendidos
-          const openBudgets = leadsWithBudget.filter(lead => {
+          const openBudgets = leadsWithBudget.filter((lead: any) => {
             const hasValidBudget = lead.fields?.budget_amount && Number(lead.fields.budget_amount) > 0;
             const notInFinalStage = !finalStageIds.includes(lead.stage_id);
             const notSold = !soldIds.includes(lead.id);
@@ -329,7 +329,7 @@ export default function Metrics() {
           });
 
           openBudgetsCount = openBudgets.length;
-          openBudgetsValue = openBudgets.reduce((sum, lead) => 
+          openBudgetsValue = openBudgets.reduce((sum: number, lead: any) => 
             sum + Number(lead.fields?.budget_amount || 0), 0
           );
         }
@@ -408,9 +408,30 @@ export default function Metrics() {
       setCac(2100);
       setRoi(totalSold > 0 ? ((totalSold - 2100) / 2100) * 100 : 0);
 
+      // Buscar leads por origem
+      const { data: leadsBySource } = await supabase
+        .from('leads')
+        .select('origin')
+        .eq('tenant_id', user?.tenant_id);
+      
+      const sourceCounts: Record<string, number> = {};
+      leadsBySource?.forEach(lead => {
+        const origin = lead.origin || 'outro';
+        sourceCounts[origin] = (sourceCounts[origin] || 0) + 1;
+      });
+
+      const sourceChartData = [
+        { name: 'WhatsApp', value: sourceCounts['whatsapp'] || 0, color: '#10B981' },
+        { name: 'Instagram', value: sourceCounts['instagram'] || 0, color: '#EC4899' },
+        { name: 'Facebook', value: sourceCounts['facebook'] || 0, color: '#3B82F6' },
+        { name: 'Site', value: sourceCounts['site'] || sourceCounts['website'] || 0, color: '#8B5CF6' },
+        { name: 'Indicação', value: sourceCounts['indicacao'] || 0, color: '#14B8A6' },
+        { name: 'Outro', value: sourceCounts['outro'] || sourceCounts['manual'] || 0, color: '#6B7280' }
+      ].filter(item => item.value > 0); // Remove fontes sem leads
+
       // Dados para gráficos
-      setDailyData([{ name: 'Hoje', leads: totalLeadsCount, conversoes: salesCount }]);
-      setSourceData([{ name: 'WhatsApp', value: totalLeadsCount }]);
+      setDailyData([{ name: 'Hoje', value: 0, leads: totalLeadsCount, conversoes: salesCount }]);
+      setSourceData(sourceChartData);
 
     } catch (error) {
       console.error('Erro ao carregar métricas:', error);

@@ -166,6 +166,26 @@ export default function ListaGeral() {
   };
 
   const getCategoryColor = (lead: Lead) => {
+    // Priorizar cores da classificação
+    const classification = lead.fields?.classification;
+    if (classification) {
+      switch (classification) {
+        case 'curva_a':
+          return 'bg-green-500/10 text-green-700 border-green-200';
+        case 'lead_desqualificado':
+          return 'bg-red-500/10 text-red-700 border-red-200';
+        case 'lead_sem_resposta':
+          return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
+        case 'lead_sem_sucesso':
+          return 'bg-orange-500/10 text-orange-700 border-orange-200';
+        case 'sem_estoque_produto':
+          return 'bg-purple-500/10 text-purple-700 border-purple-200';
+        default:
+          break;
+      }
+    }
+    
+    // Fallback para categoria antiga
     const categoria = lead.fields?.categoria || lead.fields?.tipo;
     if (categoria === 'varejo') {
       return 'bg-blue-500/10 text-blue-700 border-blue-200';
@@ -177,6 +197,26 @@ export default function ListaGeral() {
   };
 
   const getCategoryIcon = (lead: Lead) => {
+    // Priorizar ícone da classificação
+    const classification = lead.fields?.classification;
+    if (classification) {
+      switch (classification) {
+        case 'curva_a':
+          return <CheckCircle2 className="h-3.5 w-3.5" />;
+        case 'lead_desqualificado':
+          return <span className="text-xs">✗</span>;
+        case 'lead_sem_resposta':
+          return <MessageCircle className="h-3.5 w-3.5" />;
+        case 'lead_sem_sucesso':
+          return <span className="text-xs">⚠</span>;
+        case 'sem_estoque_produto':
+          return <Package className="h-3.5 w-3.5" />;
+        default:
+          break;
+      }
+    }
+    
+    // Fallback para categoria antiga
     const categoria = lead.fields?.categoria || lead.fields?.tipo;
     if (categoria === 'varejo') {
       return <User className="h-3.5 w-3.5" />;
@@ -188,20 +228,58 @@ export default function ListaGeral() {
   };
 
   const getCategoryLabel = (lead: Lead) => {
-    const categoria = lead.fields?.categoria || lead.fields?.tipo;
-    if (categoria === 'varejo') {
+    // Priorizar a classificação do cadastro
+    const classification = lead.fields?.classification;
+    
+    if (classification) {
+      switch (classification) {
+        case 'curva_a':
+          return 'Curva A';
+        case 'lead_desqualificado':
+          return 'Desqualificado';
+        case 'lead_sem_resposta':
+          return 'Sem Resposta';
+        case 'lead_sem_sucesso':
+          return 'Sem Sucesso';
+        case 'sem_estoque_produto':
+          return 'Sem Estoque';
+        default:
+          break;
+      }
+    }
+    
+    // Fallback para segmento (segment, categoria ou tipo)
+    const segment = lead.fields?.segment || lead.fields?.categoria || lead.fields?.tipo;
+    if (segment === 'varejo') {
       return 'Varejo';
-    } else if (categoria === 'distribuidor') {
+    } else if (segment === 'distribuidor') {
       return 'Distribuidor';
     } else {
       return 'Não Classificado';
     }
   };
 
+  const getSegmentLabel = (lead: Lead) => {
+    // Retorna o segmento (varejo/distribuidor) independente da classificação
+    const segment = lead.fields?.segment || lead.fields?.categoria || lead.fields?.tipo;
+    if (segment === 'varejo') {
+      return 'Varejo';
+    } else if (segment === 'distribuidor') {
+      return 'Distribuidor';
+    }
+    return null;
+  };
+
   const getStats = () => {
     const whatsapp = filteredLeads.filter(l => l.source === 'whatsapp').length;
-    const varejo = filteredLeads.filter(l => l.fields?.categoria === 'varejo' || l.fields?.tipo === 'varejo').length;
-    const distribuidor = filteredLeads.filter(l => l.fields?.categoria === 'distribuidor' || l.fields?.tipo === 'distribuidor').length;
+    const varejo = filteredLeads.filter(l => {
+      const segment = l.fields?.segment || l.fields?.categoria || l.fields?.tipo;
+      return segment === 'varejo';
+    }).length;
+    const distribuidor = filteredLeads.filter(l => {
+      const segment = l.fields?.segment || l.fields?.categoria || l.fields?.tipo;
+      return segment === 'distribuidor';
+    }).length;
     const comOrcamento = filteredLeads.filter(l => l.fields?.budget_file_base64).length;
     const propostasEnviadas = filteredLeads.filter(l => l.stages?.name?.toLowerCase().includes('proposta') || l.stages?.name?.toLowerCase().includes('proposta enviada')).length;
     
@@ -404,6 +482,19 @@ export default function ListaGeral() {
                     </Badge>
                   )}
                   
+                  {/* Badge Segmento (Varejo/Distribuidor) */}
+                  {getSegmentLabel(lead) && (
+                    <Badge 
+                      className={`text-xs font-medium ${
+                        getSegmentLabel(lead) === 'Varejo' 
+                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
+                          : 'bg-gradient-to-r from-teal-500 to-green-500 text-white'
+                      }`}
+                    >
+                      {getSegmentLabel(lead) === 'Varejo' ? '🛒 Varejo' : '📦 Distribuidor'}
+                    </Badge>
+                  )}
+                  
                   {/* Badge Proposta Enviada */}
                   {(lead.stages?.name?.toLowerCase().includes('proposta')) && (
                     <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white text-xs font-medium">
@@ -416,14 +507,14 @@ export default function ListaGeral() {
               <CardContent className="p-4 space-y-2.5">
                 {/* Contact Info - Compacto */}
                 <div className="space-y-2">
-                  {lead.phone && (
+                {lead.phone && (
                     <div className="flex items-center gap-2 text-xs">
                       <Phone className="h-3 w-3 text-blue-500" />
                       <span className="font-medium truncate">{lead.phone}</span>
-                    </div>
-                  )}
-                  
-                  {lead.email && (
+                  </div>
+                )}
+                
+                {lead.email && (
                     <div className="flex items-center gap-2 text-xs">
                       <Mail className="h-3 w-3 text-blue-600" />
                       <span className="font-medium truncate">{lead.email}</span>
@@ -444,9 +535,9 @@ export default function ListaGeral() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs font-semibold">
                         {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL'
-                        }).format(lead.fields.budget_amount || 0)}
+                        style: 'currency',
+                        currency: 'BRL'
+                      }).format(lead.fields.budget_amount || 0)}
                       </span>
                       <CheckCircle2 className="h-3.5 w-3.5" />
                     </div>
