@@ -17,6 +17,7 @@ import { DynamicConversionFunnel } from '@/components/DynamicConversionFunnel';
 import { ExportLeadsButton } from '@/components/ExportLeadsButton';
 import { useTenantView } from '@/contexts/TenantViewContext';
 import { useValuesVisibility } from '@/contexts/ValuesVisibilityContext';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface MetricCard {
   title: string;
@@ -36,7 +37,7 @@ interface ChartData {
 }
 
 export default function Metrics() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { viewingAgentId, isViewingAgent } = useTenantView();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
   const [loading, setLoading] = useState(true);
@@ -200,6 +201,7 @@ export default function Metrics() {
 
   const fetchMetrics = async () => {
     try {
+      console.log('📊 Iniciando fetchMetrics...', { user: user?.email, tenant_id: user?.tenant_id });
       setLoading(true);
 
       // Buscar vendas da tabela sales + fallback do fields
@@ -593,19 +595,66 @@ export default function Metrics() {
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
-  if (loading) {
+  // Verificar se está carregando a autenticação
+  if (authLoading) {
+    console.log('📊 Aguardando autenticação...');
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Verificando autenticação...</p>
+          </div>
         </div>
       </Layout>
     );
   }
 
+  // Verificar se o usuário está autenticado
+  if (!user) {
+    console.log('📊 Usuário não autenticado, redirecionando...');
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-destructive mb-2">
+              Acesso Negado
+            </h2>
+            <p className="text-muted-foreground">
+              Você precisa estar logado para acessar as métricas.
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (loading) {
+    console.log('📊 Metrics loading...', { user: user?.email, tenant_id: user?.tenant_id });
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Carregando métricas...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  console.log('📊 Metrics renderizando...', { 
+    user: user?.email, 
+    tenant_id: user?.tenant_id,
+    metricsCount: metrics.length,
+    dailyDataCount: dailyData.length,
+    sourceDataCount: sourceData.length
+  });
+
   return (
-    <Layout>
-      <div className="space-y-6">
+    <ErrorBoundary>
+      <Layout>
+        <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Métricas</h1>
@@ -935,5 +984,6 @@ export default function Metrics() {
         )}
       </div>
     </Layout>
+    </ErrorBoundary>
   );
 }
