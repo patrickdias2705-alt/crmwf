@@ -76,12 +76,12 @@ export default function Index() {
     conversion_rate: 0
   });
 
-  // console.log('📊 Dashboard - Estado atual:', { 
-  //   dashboardData, 
-  //   dataLoading, 
-  //   user: user?.email,
-  //   tenant_id: user?.tenant_id 
-  // });
+  console.log('📊 Dashboard - Estado atual:', { 
+    dashboardData, 
+    dataLoading, 
+    user: user?.email,
+    tenant_id: user?.tenant_id 
+  });
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [sourceData, setSourceData] = useState<SourceData[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
@@ -220,16 +220,19 @@ export default function Index() {
       // Filter by tenant first
       if (user?.tenant_id) {
         allLeadsQuery = allLeadsQuery.eq('tenant_id', user.tenant_id);
+        console.log('📊 Dashboard - Filtro tenant aplicado:', user.tenant_id);
       }
 
       // Filter by agent if viewing specific agent
       if (isViewingAgent && viewingAgentId) {
         allLeadsQuery = allLeadsQuery.eq('assigned_to', viewingAgentId);
+        console.log('📊 Dashboard - Filtro agente aplicado:', viewingAgentId);
       }
 
       // Filter by source if not "all"
       if (selectedSource !== 'all') {
         allLeadsQuery = allLeadsQuery.eq('origin', selectedSource);
+        console.log('📊 Dashboard - Filtro origem aplicado:', selectedSource);
       }
 
       const { data: allLeadsData, error: allLeadsError } = await allLeadsQuery;
@@ -388,7 +391,7 @@ export default function Index() {
                   Mostrar Valores
                 </>
               )}
-            </Button>
+                </Button>
             
             <Button variant="outline" size="sm" onClick={exportToExcel}>
               <Download className="mr-2 h-4 w-4" />

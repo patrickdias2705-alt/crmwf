@@ -17,7 +17,6 @@ import { DynamicConversionFunnel } from '@/components/DynamicConversionFunnel';
 import { ExportLeadsButton } from '@/components/ExportLeadsButton';
 import { useTenantView } from '@/contexts/TenantViewContext';
 import { useValuesVisibility } from '@/contexts/ValuesVisibilityContext';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface MetricCard {
   title: string;
