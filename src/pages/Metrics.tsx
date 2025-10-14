@@ -652,9 +652,8 @@ export default function Metrics() {
   });
 
   return (
-    <ErrorBoundary>
-      <Layout>
-        <div className="space-y-6">
+    <Layout>
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Métricas</h1>
@@ -984,6 +983,5 @@ export default function Metrics() {
         )}
       </div>
     </Layout>
-    </ErrorBoundary>
   );
 }
