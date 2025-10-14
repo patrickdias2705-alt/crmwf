@@ -209,6 +209,19 @@ export default function Index() {
         .lte('created_at', endDate.toISOString())
         .order('created_at', { ascending: false });
 
+      console.log('📊 Dashboard - Query parameters:', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        dateRange,
+        user: user?.email,
+        tenant_id: user?.tenant_id
+      });
+
+      // Filter by tenant first
+      if (user?.tenant_id) {
+        allLeadsQuery = allLeadsQuery.eq('tenant_id', user.tenant_id);
+      }
+
       // Filter by agent if viewing specific agent
       if (isViewingAgent && viewingAgentId) {
         allLeadsQuery = allLeadsQuery.eq('assigned_to', viewingAgentId);
