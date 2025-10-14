@@ -75,6 +75,13 @@ export default function Index() {
     leads_lost: 0,
     conversion_rate: 0
   });
+
+  console.log('📊 Dashboard - Estado atual:', { 
+    dashboardData, 
+    dataLoading, 
+    user: user?.email,
+    tenant_id: user?.tenant_id 
+  });
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [sourceData, setSourceData] = useState<SourceData[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
@@ -111,8 +118,11 @@ export default function Index() {
   });
 
   useEffect(() => {
-    loadDashboardData();
-  }, [dateRange, selectedAgent, selectedSource, viewingAgentId, isViewingAgent]);
+    if (user?.tenant_id) {
+      console.log('📊 Dashboard - Carregando dados para usuário:', user.email);
+      loadDashboardData();
+    }
+  }, [user?.tenant_id, dateRange, selectedAgent, selectedSource, viewingAgentId, isViewingAgent]);
 
 
   const exportToExcel = async () => {
@@ -214,7 +224,8 @@ export default function Index() {
       console.log('📊 Dashboard - Todos os leads para métricas:', { 
         allLeadsData: allLeadsData?.length || 0, 
         allLeadsError,
-        selectedSource
+        selectedSource,
+        leads: allLeadsData?.slice(0, 3) // Primeiros 3 leads para debug
       });
 
       if (allLeadsData) {
@@ -312,6 +323,7 @@ export default function Index() {
   };
 
   if (loading || dataLoading) {
+    console.log('📊 Dashboard - Loading state:', { loading, dataLoading, user: user?.email });
     return (
       <Layout>
         <div className="flex-1 flex items-center justify-center">
@@ -323,6 +335,12 @@ export default function Index() {
       </Layout>
     );
   }
+
+  console.log('📊 Dashboard - Renderizando com dados:', { 
+    dashboardData, 
+    chartData: chartData.length, 
+    sourceData: sourceData.length 
+  });
 
   return (
     <Layout>
