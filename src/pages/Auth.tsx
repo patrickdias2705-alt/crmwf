@@ -17,6 +17,7 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { signIn } = useAuth();
 
   useEffect(() => {
@@ -60,14 +61,22 @@ export default function Auth() {
           setShowSuccess(false);
         }, 3000);
       } else {
-        // Sign in
+        // Sign in with smooth transition
+        setIsTransitioning(true);
+        
+        // Add a small delay for smooth transition
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
         const result = await signIn(email, password);
         if (result.error) {
           setError(result.error);
+          setIsTransitioning(false);
         }
+        // If successful, the page will redirect automatically
       }
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro');
+      setIsTransitioning(false);
     } finally {
       setIsLoading(false);
     }
@@ -102,9 +111,11 @@ export default function Auth() {
       {/* Efeito de brilho centralizado mais intenso */}
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-radial from-primary/15 via-primary/8 to-transparent rounded-full blur-3xl animate-pulse" />
 
-      <div className="relative z-10 w-full max-w-md animate-fade-in">
+      <div className={`relative z-10 w-full max-w-md transition-all duration-500 ${
+        isTransitioning ? 'animate-fade-out' : 'animate-fade-in-smooth'
+      }`}>
         {/* Logo WF Cirúrgicos com animação */}
-          <div className="text-center mb-8 animate-scale-in">
+          <div className="text-center mb-8 animate-scale-in-smooth">
             <div className="relative inline-block group">
               <div className="relative mx-auto mb-4 w-20 h-20 rounded-xl bg-gradient-to-br from-primary/20 to-primary-variant/20 backdrop-blur-sm border border-primary/30 flex items-center justify-center">
                 <img 
@@ -120,7 +131,9 @@ export default function Auth() {
           </div>
 
         {/* Card com glass morphism mais aparente */}
-        <Card className="glass border-primary/20 shadow-2xl backdrop-blur-xl animate-slide-up glow-primary" style={{ animationDelay: '0.3s' }}>
+        <Card className={`glass border-primary/20 shadow-2xl backdrop-blur-xl glow-primary transition-all duration-500 ${
+          isTransitioning ? 'animate-fade-out' : 'animate-slide-up-smooth'
+        }`} style={{ animationDelay: '0.3s' }}>
           <CardHeader className="text-center pb-4">
             <div className="flex items-center justify-center gap-2 mb-2">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
@@ -209,14 +222,17 @@ export default function Auth() {
               <div className="space-y-3 pt-2">
                  <Button 
                   type="submit" 
-                  className="w-full h-11 bg-gradient-to-r from-primary via-accent to-secondary text-primary-foreground font-semibold shadow-glow hover:shadow-neon hover:from-primary/90 hover:via-accent/90 hover:to-secondary/90 transform hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed border-0" 
-                  disabled={isLoading}
+                  className={`w-full h-11 bg-gradient-to-r from-primary via-accent to-secondary text-primary-foreground font-semibold shadow-glow hover:shadow-neon hover:from-primary/90 hover:via-accent/90 hover:to-secondary/90 transform hover:scale-[1.02] transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed border-0 ${
+                    isTransitioning ? 'animate-fade-out' : ''
+                  }`}
+                  disabled={isLoading || isTransitioning}
                 >
-                  {isLoading ? (
+                  {isLoading || isTransitioning ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                        <span className="text-primary-foreground font-medium">
-                         {isSignUp ? 'Criando sua conta...' : 'Acessando sistema...'}
+                         {isSignUp ? 'Criando sua conta...' : 
+                          isTransitioning ? 'Redirecionando...' : 'Acessando sistema...'}
                        </span>
                     </>
                   ) : (

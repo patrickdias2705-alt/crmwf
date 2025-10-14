@@ -172,8 +172,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       if (data.user && data.session) {
-        // Force page reload for clean state
-        window.location.href = '/';
+        // Add a small delay for smooth transition before redirect
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 200);
       }
 
       return {};
