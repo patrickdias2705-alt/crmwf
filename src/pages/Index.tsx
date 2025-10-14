@@ -76,12 +76,12 @@ export default function Index() {
     conversion_rate: 0
   });
 
-  console.log('📊 Dashboard - Estado atual:', { 
-    dashboardData, 
-    dataLoading, 
-    user: user?.email,
-    tenant_id: user?.tenant_id 
-  });
+  // console.log('📊 Dashboard - Estado atual:', { 
+  //   dashboardData, 
+  //   dataLoading, 
+  //   user: user?.email,
+  //   tenant_id: user?.tenant_id 
+  // });
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [sourceData, setSourceData] = useState<SourceData[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
@@ -336,7 +336,7 @@ export default function Index() {
   };
 
   if (loading || dataLoading) {
-    console.log('📊 Dashboard - Loading state:', { loading, dataLoading, user: user?.email });
+    // console.log('📊 Dashboard - Loading state:', { loading, dataLoading, user: user?.email });
     return (
       <Layout>
         <div className="flex-1 flex items-center justify-center">
@@ -349,11 +349,11 @@ export default function Index() {
     );
   }
 
-  console.log('📊 Dashboard - Renderizando com dados:', { 
-    dashboardData, 
-    chartData: chartData.length, 
-    sourceData: sourceData.length 
-  });
+  // console.log('📊 Dashboard - Renderizando com dados:', { 
+  //   dashboardData, 
+  //   chartData: chartData.length, 
+  //   sourceData: sourceData.length 
+  // });
 
   return (
     <Layout>
