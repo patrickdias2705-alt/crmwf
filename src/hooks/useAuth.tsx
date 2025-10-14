@@ -198,10 +198,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Ignore errors
       }
       
-      // Force page reload for clean state
-      window.location.href = '/auth';
+      // Force page reload for clean state with fallback
+      try {
+        // Try to navigate to auth page
+        window.location.href = window.location.origin + '/auth';
+      } catch (navError) {
+        // Fallback: reload the page and let the router handle it
+        console.warn('Navigation failed, reloading page:', navError);
+        window.location.reload();
+      }
     } catch (error) {
       console.error('Error signing out:', error);
+      // Final fallback: reload the page
+      window.location.reload();
     } finally {
       setLoading(false);
     }
