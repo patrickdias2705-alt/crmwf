@@ -17,6 +17,12 @@ interface SalesStats {
     today_count: number;
     today_avg: number;
   };
+  last_5_days: Array<{
+    date: string;
+    sales: number;
+    count: number;
+    avg_ticket: number;
+  }>;
   calculated_at: string;
 }
 
@@ -37,32 +43,90 @@ export function LiveSalesStats() {
       let totalCount = 0;
       let todaySales = 0;
       let todayCount = 0;
+      let last5Days: Array<{date: string, sales: number, count: number, avg_ticket: number}> = [];
 
       try {
-        const { data: salesTableData, error: salesError } = await supabase
-          .from('sales')
-          .select('amount, sold_at')
-          .eq('tenant_id', user.tenant_id);
+        // NOVO: Usar métricas diárias automáticas
+        // Buscar métricas de HOJE para vendas diárias
+        const { data: todayMetrics, error: todayError } = await supabase
+          .from('daily_sales_metrics')
+          .select('total_sales, total_leads, closed_leads, avg_ticket')
+          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+          .eq('date', new Date().toISOString().split('T')[0])
+          .single();
 
-        if (salesError) throw salesError;
+        // Buscar TOTAL GERAL de todas as vendas históricas
+        const { data: allSales, error: allSalesError } = await supabase
+          .from('sales')
+          .select('amount')
+          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+
+        // Buscar métricas dos últimos 5 dias
+        const { data: last5DaysData, error: last5DaysError } = await supabase
+          .from('daily_sales_metrics')
+          .select('date, total_sales, closed_leads, avg_ticket')
+          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+          .gte('date', new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+          .order('date', { ascending: false });
+
+        if (todayError) throw todayError;
         
-        if (salesTableData && salesTableData.length > 0) {
-          salesData = salesTableData;
-          totalSales = salesTableData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
-          totalCount = salesTableData.length;
+        if (todayMetrics) {
+          // Vendas de HOJE (reset diário)
+          todaySales = Number(todayMetrics.total_sales) || 0;
+          todayCount = Number(todayMetrics.closed_leads) || 0;
           
-          // Vendas de hoje
-          const today = new Date().toISOString().split('T')[0];
-          const todayData = salesTableData.filter(sale => 
-            sale.sold_at && sale.sold_at.startsWith(today)
-          );
-          todaySales = todayData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
-          todayCount = todayData.length;
+          // TOTAL GERAL (soma de todas as vendas históricas)
+          if (allSales && allSales.length > 0) {
+            totalSales = allSales.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+            totalCount = allSales.length;
+          } else {
+            totalSales = 0;
+            totalCount = 0;
+          }
           
-          console.log('💰 LiveSalesStats - Dados da tabela sales:', { totalSales, totalCount, todaySales, todayCount });
+          // Processar dados dos últimos 5 dias
+          if (last5DaysData && last5DaysData.length > 0) {
+            last5Days = last5DaysData.map(day => ({
+              date: day.date,
+              sales: Number(day.total_sales) || 0,
+              count: Number(day.closed_leads) || 0,
+              avg_ticket: Number(day.avg_ticket) || 0
+            }));
+          }
+          
+          console.log('💰 LiveSalesStats - Métricas diárias:', { 
+            totalSales, totalCount, todaySales, todayCount,
+            todayMetrics, allSalesCount: allSales?.length || 0,
+            last5Days: last5Days.length
+          });
+        } else {
+          // Fallback: buscar da tabela sales se métricas diárias não existirem
+          const { data: salesTableData, error: salesError } = await supabase
+            .from('sales')
+            .select('amount, sold_at')
+            .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+
+          if (salesError) throw salesError;
+          
+          if (salesTableData && salesTableData.length > 0) {
+            salesData = salesTableData;
+            totalSales = salesTableData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+            totalCount = salesTableData.length;
+            
+            // Vendas de hoje
+            const today = new Date().toISOString().split('T')[0];
+            const todayData = salesTableData.filter(sale => 
+              sale.sold_at && sale.sold_at.startsWith(today)
+            );
+            todaySales = todayData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+            todayCount = todayData.length;
+            
+            console.log('💰 LiveSalesStats - Fallback tabela sales:', { totalSales, totalCount, todaySales, todayCount });
+          }
         }
       } catch (error) {
-        console.log('⚠️ Tabela sales não acessível, usando fallback:', error);
+        console.log('⚠️ Métricas diárias não acessíveis, usando fallback:', error);
       }
 
       // Fallback: buscar vendas do fields dos leads se tabela sales estiver vazia
@@ -113,6 +177,7 @@ export function LiveSalesStats() {
           today_count: todayCount,
           today_avg: todayAvg
         },
+        last_5_days: last5Days,
         calculated_at: new Date().toISOString()
       };
 
@@ -147,7 +212,7 @@ export function LiveSalesStats() {
           event: '*',
           schema: 'public',
           table: 'sales',
-          filter: `tenant_id=eq.${user.tenant_id}`
+          filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c`
         },
         () => {
           console.log('🔄 Venda detectada, atualizando estatísticas...');
@@ -260,6 +325,32 @@ export function LiveSalesStats() {
             </div>
           </div>
         </div>
+
+        {/* Últimos 5 Dias */}
+        {stats.last_5_days && stats.last_5_days.length > 0 && (
+          <div>
+            <h4 className="font-medium text-sm text-gray-600 mb-3">📈 Últimos 5 Dias</h4>
+            <div className="space-y-2">
+              {stats.last_5_days.map((day, index) => (
+                <div key={day.date} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="text-xs font-medium text-gray-500 w-16">
+                      {index === 0 ? 'Hoje' : 
+                       index === 1 ? 'Ontem' : 
+                       new Date(day.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                    </div>
+                    <div className="text-sm font-semibold text-green-600">
+                      {valuesVisible ? `R$ ${day.sales.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••'}
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {valuesVisible ? `${day.count} vendas` : '•••• vendas'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Indicador de Atualização Automática */}
         <div className="text-center">

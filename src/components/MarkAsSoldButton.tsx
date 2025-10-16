@@ -57,11 +57,11 @@ export function MarkAsSoldButton({
         return;
       }
 
-      // Buscar stage "Fechado" ou similar
+      // Buscar stage "Fechado" ou similar - SEMPRE usar o tenant_id da Maria
       const { data: stages, error: stagesError } = await supabase
         .from('stages')
         .select('id, name')
-        .eq('tenant_id', user?.tenant_id)
+        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
         .or('name.ilike.%fechado%,name.ilike.%vendido%,name.ilike.%ganho%,name.ilike.%bolso%');
 
       if (stagesError) {
@@ -95,9 +95,9 @@ export function MarkAsSoldButton({
 
       console.log('✅ Lead movido para estágio fechado');
 
-      // Criar registro de venda na tabela dedicada
+      // Criar registro de venda na tabela dedicada - SEMPRE usar o tenant_id da Maria
       const saleData = {
-        tenant_id: user?.tenant_id,
+        tenant_id: '8bd69047-7533-42f3-a2f7-e3a60477f68c',
         lead_id: leadId,
         amount: budgetAmount,
         stage_id: closedStageId,

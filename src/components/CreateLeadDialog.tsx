@@ -22,7 +22,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
     name: '',
     phone: '',
     email: '',
-    origin: 'whatsapp',
+    origin: 'meta_ads',
     segment: 'varejo',
     category: 'varejo',
     order_number: '',
@@ -108,7 +108,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       });
 
       toast.success('Lead criado com sucesso!');
-      setFormData({ name: '', phone: '', email: '', origin: 'whatsapp', segment: 'varejo', category: 'varejo', order_number: '', classification: 'curva_a' });
+      setFormData({ name: '', phone: '', email: '', origin: 'meta_ads', segment: 'varejo', category: 'varejo', order_number: '', classification: 'curva_a' });
       setOpen(false);
       onLeadCreated?.();
     } catch (error: any) {
@@ -198,12 +198,15 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
+                    <SelectItem value="meta_ads">Meta Ads</SelectItem>
+                    <SelectItem value="instagram">Instagram (Direct)</SelectItem>
+                    <SelectItem value="facebook">Facebook (Messenger FB)</SelectItem>
                     <SelectItem value="site">Site</SelectItem>
+                    <SelectItem value="loja">Loja</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                    <SelectItem value="linkedin">LinkedIn</SelectItem>
                     <SelectItem value="indicacao">Indicação</SelectItem>
-                    <SelectItem value="outro">Outro</SelectItem>
+                    <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -218,7 +221,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                     <SelectItem value="varejo">Varejo</SelectItem>
                     <SelectItem value="distribuidor">Distribuidor</SelectItem>
                     <SelectItem value="revenda">Revenda</SelectItem>
-                    <SelectItem value="outro">Outro</SelectItem>
+                    <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -233,7 +236,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                     <SelectItem value="varejo">Varejo</SelectItem>
                     <SelectItem value="distribuidor">Distribuidor</SelectItem>
                     <SelectItem value="revenda">Revenda</SelectItem>
-                    <SelectItem value="outro">Outro</SelectItem>
+                    <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

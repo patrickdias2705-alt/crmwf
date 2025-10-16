@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Phone, Mail, Calendar, User, Trash2, DollarSign, Edit } from 'lucide-react';
+import { Search, Phone, Mail, Calendar, User, Trash2, DollarSign, Edit, ArrowLeft, Plus, Filter, Download } from 'lucide-react';
 import { Button, Button as ActionButton } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -43,6 +44,7 @@ interface Lead {
 export default function Leads() {
   const { user, hasRole } = useAuth();
   const { viewingAgentId, isViewingAgent } = useTenantView();
+  const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -285,76 +287,122 @@ export default function Leads() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-            <p className="text-muted-foreground">
-              Gerencie todos os seus leads em um só lugar
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportLeadsButton />
-            {hasRole(['admin', 'agent']) && (
-              <CreateLeadDialog onLeadCreated={fetchLeads} />
-            )}
+        {/* Header melhorado */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 border border-blue-200/50 dark:border-blue-800/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/')}
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Voltar ao Dashboard
+              </Button>
+              <div className="h-8 w-px bg-blue-200 dark:bg-blue-800" />
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  Gestão de Leads
+                </h1>
+                <p className="text-blue-600/80 dark:text-blue-400/80 mt-1">
+                  Gerencie todos os seus leads em um só lugar
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ExportLeadsButton />
+              {hasRole(['admin', 'agent']) && (
+                <CreateLeadDialog onLeadCreated={fetchLeads} />
+              )}
+            </div>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Filtros</CardTitle>
-            <CardDescription>
-              Use os filtros abaixo para encontrar leads específicos
+        {/* Filtros melhorados */}
+        <Card className="border-0 shadow-lg bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
+          <CardHeader className="pb-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-xl">Filtros e Busca</CardTitle>
+            </div>
+            <CardDescription className="text-gray-600 dark:text-gray-400">
+              Use os filtros abaixo para encontrar leads específicos rapidamente
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Buscar Lead</label>
                 <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
-                    placeholder="Buscar por nome, telefone ou email..."
+                    placeholder="Nome, telefone ou email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                   />
                 </div>
               </div>
-              <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Fonte" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as fontes</SelectItem>
-                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                  <SelectItem value="facebook">Facebook</SelectItem>
-                  <SelectItem value="instagram">Instagram</SelectItem>
-                  <SelectItem value="site">Site</SelectItem>
-                  <SelectItem value="manual">Manual</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={stageFilter} onValueChange={setStageFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Estágio" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os estágios</SelectItem>
-                  <SelectItem value="novo">Novo</SelectItem>
-                  <SelectItem value="atendido">Atendido</SelectItem>
-                  <SelectItem value="qualificado">Qualificado</SelectItem>
-                  <SelectItem value="fechado">Fechado</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Origem</label>
+                <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                  <SelectTrigger className="border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                    <SelectValue placeholder="Todas as origens" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as origens</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="facebook">Facebook</SelectItem>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="site">Site</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Estágio</label>
+                <Select value={stageFilter} onValueChange={setStageFilter}>
+                  <SelectTrigger className="border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                    <SelectValue placeholder="Todos os estágios" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os estágios</SelectItem>
+                    <SelectItem value="novo">Novo</SelectItem>
+                    <SelectItem value="atendido">Atendido</SelectItem>
+                    <SelectItem value="qualificado">Qualificado</SelectItem>
+                    <SelectItem value="fechado">Fechado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Lista de Leads ({filteredLeads.length})</CardTitle>
+        {/* Tabela de leads melhorada */}
+        <Card className="border-0 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-950/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <User className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Lista de Leads</CardTitle>
+                  <CardDescription className="text-blue-600 dark:text-blue-400">
+                    {filteredLeads.length} leads encontrados
+                  </CardDescription>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                  Total: {leads.length}
+                </Badge>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

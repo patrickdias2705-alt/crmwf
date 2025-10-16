@@ -95,6 +95,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       console.log('Dados do usuário carregados com sucesso:', data);
+      console.log('🏠 useAuth - Tenant ID debug:', {
+        email: data.email,
+        tenant_id: data.tenant_id,
+        raw_user_meta_data: session.user.user_metadata,
+        raw_app_meta_data: session.user.app_metadata
+      });
+      
       setUser({
         id: data.id,
         email: data.email,

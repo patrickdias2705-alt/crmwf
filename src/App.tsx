@@ -1,7 +1,11 @@
+import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { setDefaultTheme } from "@/utils/themeUtils";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { logDebugInfo, checkThinkPadIssues } from "@/utils/debugUtils";
 
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -68,17 +72,29 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const App = () => (
-  <ThemeProvider>
-    <AuthProvider>
-      <TenantViewProvider>
-        <ValuesVisibilityProvider>
-          <RealtimeProvider>
-            <TooltipProvider>
-            <div className="min-h-screen bg-background text-foreground">
-              <Toaster />
-              <Sonner />
-              <BrowserRouter>
+const App = () => {
+  // Garantir que o tema padrão seja sempre light
+  React.useEffect(() => {
+    setDefaultTheme();
+    
+    // Debug para identificar problemas
+    console.log('🚀 Inicializando aplicação...');
+    logDebugInfo();
+    checkThinkPadIssues();
+  }, []);
+
+  return (
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AuthProvider>
+          <TenantViewProvider>
+            <ValuesVisibilityProvider>
+              <RealtimeProvider>
+                <TooltipProvider>
+                <div className="min-h-screen bg-background text-foreground">
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
             <Routes>
               <Route 
                 path="/auth" 
@@ -200,9 +216,11 @@ const App = () => (
       </TooltipProvider>
     </RealtimeProvider>
     </ValuesVisibilityProvider>
-  </TenantViewProvider>
-  </AuthProvider>
-  </ThemeProvider>
-);
+        </TenantViewProvider>
+        </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+  );
+};
 
 export default App;

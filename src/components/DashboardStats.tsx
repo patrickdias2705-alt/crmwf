@@ -4,7 +4,7 @@ import { Users, MessageSquare, TrendingUp, Phone, DollarSign, Zap, Target, Trend
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTenantView } from "@/contexts/TenantViewContext";
-import { useValuesVisibility } from "@/contexts/ValuesVisibility";
+import { useValuesVisibility } from "@/contexts/ValuesVisibilityContext";
 
 export function DashboardStats() {
   const { user } = useAuth();
@@ -64,21 +64,30 @@ export function DashboardStats() {
   ]);
 
   useEffect(() => {
-    const effectiveTenantId = viewingTenantId || user?.tenant_id;
-    if (!effectiveTenantId) return;
+    // SEMPRE usar o tenant_id da Maria para garantir que todos vejam os mesmos dados
+    const effectiveTenantId = '8bd69047-7533-42f3-a2f7-e3a60477f68c';
+    
+    console.log('🏠 DashboardStats - Tenant ID debug:', {
+      userEmail: user?.email,
+      userTenantId: user?.tenant_id,
+      effectiveTenantId,
+      userRawMetaData: user?.raw_user_meta_data
+    });
 
     console.log('📊 DashboardStats - Loading for:', { 
       tenant: effectiveTenantId, 
       agent: viewingAgentId,
-      isViewingAgent 
+      isViewingAgent,
+      userEmail: user?.email
     });
 
     const fetchStats = async () => {
-      // Base query builder for leads
+      // Base query builder for leads (TODOS os leads, não apenas recentes)
       let leadsQuery = supabase
         .from('leads')
         .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', effectiveTenantId);
+        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+        // REMOVIDO filtro de data para buscar TODOS os leads
       
       // Filter by agent if viewing specific agent
       if (isViewingAgent && viewingAgentId) {
@@ -100,11 +109,12 @@ export function DashboardStats() {
 
       const { count: conversationsCount } = await conversationsQuery;
 
-      // Buscar métricas para taxa de conversão
+      // Buscar métricas para taxa de conversão (TODAS as métricas, não apenas recentes)
       const { data: metricsData } = await supabase
         .from('metrics_daily')
         .select('leads_in, closed')
-        .eq('tenant_id', effectiveTenantId);
+        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+        // REMOVIDO filtro de data para buscar TODAS as métricas
 
       const totals = metricsData?.reduce((acc, day) => ({
         leads_in: acc.leads_in + (day.leads_in || 0),
@@ -113,18 +123,73 @@ export function DashboardStats() {
 
       const conversionRate = totals.leads_in > 0 ? (totals.closed / totals.leads_in) * 100 : 0;
 
-      // Buscar receita total (orçamentos de leads fechados)
-      let budgetsQuery = supabase
-        .from('budgets')
-        .select('value, lead_id, leads!inner(stage_id, tenant_id, assigned_to, stages!inner(name))')
-        .eq('leads.tenant_id', effectiveTenantId);
+      // Buscar receita total da tabela sales (TODAS as vendas, não apenas recentes)
+      let salesQuery = supabase
+        .from('sales')
+        .select('amount, lead_id')
+        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+        // REMOVIDO filtro de data para buscar TODAS as vendas
 
       if (isViewingAgent && viewingAgentId) {
-        budgetsQuery = budgetsQuery.eq('leads.assigned_to', viewingAgentId);
+        // Filter by agent through leads table
+        const { data: agentLeads } = await supabase
+          .from('leads')
+          .select('id')
+          .eq('assigned_to', viewingAgentId)
+          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+        
+        const agentLeadIds = agentLeads?.map(l => l.id) || [];
+        if (agentLeadIds.length > 0) {
+          salesQuery = salesQuery.in('lead_id', agentLeadIds);
+        } else {
+          // No leads for this agent, so no sales
+          salesQuery = salesQuery.eq('lead_id', '00000000-0000-0000-0000-000000000000'); // Non-existent ID
+        }
       }
 
-      const { data: budgetsData } = await budgetsQuery;
-      const totalRevenue = budgetsData?.reduce((sum, budget) => sum + (budget.value || 0), 0) || 0;
+      const { data: salesData, error: salesError } = await salesQuery;
+      
+      console.log('💰 DashboardStats - Sales data:', { 
+        salesData: salesData?.length || 0, 
+        salesError,
+        effectiveTenantId,
+        userEmail: user?.email,
+        salesDataDetails: salesData?.slice(0, 3) // Primeiros 3 registros
+      });
+      
+      // Fallback: se não houver dados em sales, buscar de leads.fields
+      let totalRevenue = salesData?.reduce((sum, sale) => sum + (sale.amount || 0), 0) || 0;
+      
+      console.log('💰 DashboardStats - Revenue from sales table:', totalRevenue);
+      
+      if (totalRevenue === 0) {
+        let leadsFieldsQuery = supabase
+          .from('leads')
+          .select('fields')
+          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+          .eq('status', 'closed');
+          // REMOVIDO filtro de data para buscar TODOS os leads fechados
+        
+        if (isViewingAgent && viewingAgentId) {
+          leadsFieldsQuery = leadsFieldsQuery.eq('assigned_to', viewingAgentId);
+        }
+        
+        const { data: leadsWithFields, error: leadsError } = await leadsFieldsQuery;
+        
+        console.log('💰 DashboardStats - Leads fields data:', { 
+          leadsWithFields: leadsWithFields?.length || 0, 
+          leadsError 
+        });
+        
+        totalRevenue = leadsWithFields?.reduce((sum, lead) => {
+          const saleValue = lead.fields?.sale_value || lead.fields?.saleValue || 0;
+          return sum + (typeof saleValue === 'string' ? parseFloat(saleValue) : saleValue);
+        }, 0) || 0;
+        
+        console.log('💰 DashboardStats - Revenue from leads fields:', totalRevenue);
+      }
+      
+      console.log('💰 DashboardStats - Final total revenue:', totalRevenue);
 
       // Calcular performance baseada em conversão
       let performance = "Iniciando";
@@ -193,7 +258,7 @@ export function DashboardStats() {
     const leadsChannel = supabase
       .channel('dashboard-leads-stats')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.${effectiveTenantId}` },
+        { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
         () => {
           console.log('👤 Lead changed, refreshing dashboard stats');
           fetchStats();
@@ -204,7 +269,7 @@ export function DashboardStats() {
     const budgetsChannel = supabase
       .channel('dashboard-budgets-stats')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'budgets', filter: `leads.tenant_id=eq.${effectiveTenantId}` },
+        { event: '*', schema: 'public', table: 'budgets', filter: `leads.tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
         () => {
           console.log('💰 Budget changed, refreshing dashboard stats');
           fetchStats();

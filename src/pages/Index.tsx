@@ -60,7 +60,16 @@ interface Activity {
   lead_id: string;
 }
 
-const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+const COLORS = [
+  '#22c55e', // Verde - Meta Ads
+  '#3b82f6', // Azul - Instagram
+  '#ef4444', // Vermelho - Site
+  '#8b5cf6', // Roxo - Loja
+  '#06b6d4', // Ciano - TikTok
+  '#ec4899', // Rosa - LinkedIn
+  '#14b8a6', // Verde água - Indicação
+  '#6b7280'  // Cinza - Cliente Carteirizado
+];
 
 export default function Index() {
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
@@ -76,12 +85,6 @@ export default function Index() {
     conversion_rate: 0
   });
 
-  console.log('📊 Dashboard - Estado atual:', { 
-    dashboardData, 
-    dataLoading, 
-    user: user?.email,
-    tenant_id: user?.tenant_id 
-  });
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [sourceData, setSourceData] = useState<SourceData[]>([]);
   const [recentLeads, setRecentLeads] = useState<Lead[]>([]);
@@ -100,13 +103,25 @@ export default function Index() {
       
       // Update source data based on origin
       setSourceData(prev => {
-        const sourceCounts = { ...prev.reduce((acc, item) => ({ ...acc, [item.name.toLowerCase()]: item.value }), {}) };
-        const origin = lead.origin || 'outro';
+        const sourceCounts = { ...prev.reduce((acc, item) => ({ ...acc, [item.name.toLowerCase().replace(' ', '_')]: item.value }), {}) };
+        const origin = lead.origin || 'cliente_carteirizado';
         sourceCounts[origin] = (sourceCounts[origin] || 0) + 1;
         
-        return Object.entries(sourceCounts).map(([name, value], index) => ({
-          name: name.charAt(0).toUpperCase() + name.slice(1),
-          value: Number(value),
+        // Definir todas as categorias disponíveis (Facebook movido para Meta Ads)
+        const allCategories = [
+          'meta_ads',
+          'instagram', 
+          'site',
+          'loja',
+          'tiktok',
+          'linkedin',
+          'indicacao',
+          'cliente_carteirizado'
+        ];
+        
+        return allCategories.map((category, index) => ({
+          name: category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' '),
+          value: sourceCounts[category] || 0,
           color: COLORS[index % COLORS.length]
         }));
       });
@@ -118,11 +133,10 @@ export default function Index() {
   });
 
   useEffect(() => {
-    if (user?.tenant_id) {
-      console.log('📊 Dashboard - Carregando dados para usuário:', user.email);
-      loadDashboardData();
-    }
-  }, [user?.tenant_id, dateRange, selectedAgent, selectedSource, viewingAgentId, isViewingAgent]);
+    // Sempre carregar dados usando o tenant_id da Maria
+    console.log('📊 Dashboard - Carregando dados para usuário:', user?.email);
+    loadDashboardData();
+  }, [dateRange, selectedAgent, selectedSource, viewingAgentId, isViewingAgent]);
 
 
   const exportToExcel = async () => {
@@ -214,14 +228,12 @@ export default function Index() {
         endDate: endDate.toISOString(),
         dateRange,
         user: user?.email,
-        tenant_id: user?.tenant_id
+        tenant_id: '8bd69047-7533-42f3-a2f7-e3a60477f68c'
       });
 
-      // Filter by tenant first
-      if (user?.tenant_id) {
-        allLeadsQuery = allLeadsQuery.eq('tenant_id', user.tenant_id);
-        console.log('📊 Dashboard - Filtro tenant aplicado:', user.tenant_id);
-      }
+      // Sempre usar o tenant_id da Maria
+      allLeadsQuery = allLeadsQuery.eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+      console.log('📊 Dashboard - Filtro tenant aplicado:', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
 
       // Filter by agent if viewing specific agent
       if (isViewingAgent && viewingAgentId) {
@@ -301,16 +313,30 @@ export default function Index() {
 
         // Calculate source distribution based on origin field
         const sourceCounts = allLeadsData.reduce((acc: Record<string, number>, lead) => {
-          const origin = lead.origin || 'outro';
+          const origin = lead.origin || 'cliente_carteirizado';
           acc[origin] = (acc[origin] || 0) + 1;
           return acc;
         }, {});
 
-        const sourceDataFormatted = Object.entries(sourceCounts).map(([name, value], index) => ({
-          name: name.charAt(0).toUpperCase() + name.slice(1),
-          value,
+        // Definir todas as categorias disponíveis (Facebook movido para Meta Ads)
+        const allCategories = [
+          'meta_ads',
+          'instagram', 
+          'site',
+          'loja',
+          'tiktok',
+          'linkedin',
+          'indicacao',
+          'cliente_carteirizado'
+        ];
+
+        // Garantir que todas as categorias apareçam, mesmo com 0 leads
+        const sourceDataFormatted = allCategories.map((category, index) => ({
+          name: category.charAt(0).toUpperCase() + category.slice(1).replace('_', ' '),
+          value: sourceCounts[category] || 0,
           color: COLORS[index % COLORS.length]
         }));
+        
         setSourceData(sourceDataFormatted);
       }
 
@@ -444,12 +470,12 @@ export default function Index() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas as fontes</SelectItem>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
+                    <SelectItem value="meta_ads">Meta Ads</SelectItem>
+                    <SelectItem value="instagram">Instagram (Direct)</SelectItem>
                     <SelectItem value="site">Site</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
-                    <SelectItem value="api">API</SelectItem>
+                    <SelectItem value="loja">Loja</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
+                    <SelectItem value="linkedin">LinkedIn</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -611,7 +637,6 @@ export default function Index() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
@@ -620,7 +645,13 @@ export default function Index() {
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip 
+                    formatter={(value, name) => [
+                      `${name}: ${value} leads`,
+                      'Leads'
+                    ]}
+                    labelFormatter={(label) => `Origem: ${label}`}
+                  />
                 </PieChart>
               </ResponsiveContainer>
               
@@ -631,7 +662,9 @@ export default function Index() {
                       className="w-3 h-3 rounded-full" 
                       style={{ backgroundColor: source.color }}
                     />
-                    <span className="text-sm">{source.name}: {source.value}</span>
+                    <span className="text-sm text-gray-600">
+                      {source.name}: {valuesVisible ? source.value : '•••'}
+                    </span>
                   </div>
                 ))}
               </div>

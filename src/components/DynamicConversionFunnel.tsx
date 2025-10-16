@@ -32,14 +32,14 @@ export function DynamicConversionFunnel() {
       const channel = supabase
         .channel('funnel-realtime')
         .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'lead_events', filter: `tenant_id=eq.${user.tenant_id}` },
+          { event: '*', schema: 'public', table: 'lead_events', filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
           () => {
             console.log('📊 Evento detectado! Atualizando funil...');
             fetchFunnelData();
           }
         )
         .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.${user.tenant_id}` },
+          { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
           () => {
             console.log('📊 Lead atualizado! Atualizando funil...');
             fetchFunnelData();
@@ -63,7 +63,7 @@ export function DynamicConversionFunnel() {
       const { data: stages, error: stagesError } = await supabase
         .from('stages')
         .select('id, name, color, order')
-        .eq('tenant_id', user?.tenant_id)
+        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
         .order('order', { ascending: true });
 
       if (stagesError) {
@@ -80,14 +80,15 @@ export function DynamicConversionFunnel() {
 
       console.log('📊 Estágios encontrados:', stages.length, stages.map(s => s.name));
 
-      // 2. Buscar leads por estágio atual (método simplificado)
+      // 2. Buscar leads por estágio atual (método simplificado) - APENAS LEADS ÚNICOS
       const { data: leadsByStage, error: leadsError } = await supabase
         .from('leads')
         .select(`
+          id,
           stage_id,
           stages!inner(name, color, order)
         `)
-        .eq('tenant_id', user?.tenant_id);
+        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
 
       if (leadsError) {
         console.error('❌ Erro ao buscar leads:', leadsError);
@@ -96,13 +97,20 @@ export function DynamicConversionFunnel() {
 
       console.log('📊 Total de leads encontrados:', leadsByStage?.length || 0);
 
-      // 3. Contar leads por estágio
+      // 3. Contar leads únicos por estágio (evitar duplicação)
       const stageCounts: Record<string, number> = {};
+      const uniqueLeads = new Set<string>();
       
       if (leadsByStage) {
         leadsByStage.forEach((lead: any) => {
+          const leadId = lead.id;
           const stageId = lead.stage_id;
-          stageCounts[stageId] = (stageCounts[stageId] || 0) + 1;
+          
+          // Só contar se o lead ainda não foi contado
+          if (!uniqueLeads.has(leadId)) {
+            uniqueLeads.add(leadId);
+            stageCounts[stageId] = (stageCounts[stageId] || 0) + 1;
+          }
         });
       }
 

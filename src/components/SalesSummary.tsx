@@ -44,7 +44,7 @@ export function SalesSummary({ period = 30 }: SalesSummaryProps) {
         const { data, error } = await supabase
           .from('sales')
           .select('id, amount, sold_at, sold_by_name, lead_id, stage_name')
-          .eq('tenant_id', user?.tenant_id)
+          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
           .gte('sold_at', new Date(Date.now() - period * 24 * 60 * 60 * 1000).toISOString())
           .order('sold_at', { ascending: false });
 
@@ -64,7 +64,7 @@ export function SalesSummary({ period = 30 }: SalesSummaryProps) {
           const { data: leadsData } = await supabase
             .from('leads')
             .select('id, fields, updated_at')
-            .eq('tenant_id', user?.tenant_id)
+            .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
             .not('fields->sold', 'is', null)
             .eq('fields->sold', true);
 

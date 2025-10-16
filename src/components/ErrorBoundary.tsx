@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { ThinkPadFallback } from './ThinkPadFallback';
 
 interface Props {
   children: ReactNode;
@@ -28,6 +29,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      // Verificar se é um ThinkPad
+      const isThinkPad = navigator.userAgent.toLowerCase().includes('thinkpad') || 
+                        navigator.userAgent.toLowerCase().includes('lenovo');
+      
+      if (isThinkPad) {
+        return (
+          <ThinkPadFallback 
+            error={this.state.error}
+            onRetry={() => this.setState({ hasError: false, error: undefined, errorInfo: undefined })}
+          />
+        );
+      }
+      
       return this.props.fallback || (
         <div className="min-h-screen flex items-center justify-center bg-background">
           <div className="text-center p-8 max-w-md">
