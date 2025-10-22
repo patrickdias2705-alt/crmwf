@@ -245,6 +245,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                   <SelectContent className="bg-background border-border">
                     <SelectItem value="varejo" className="text-foreground">Varejo</SelectItem>
                     <SelectItem value="distribuidor" className="text-foreground">Distribuidor</SelectItem>
+                    <SelectItem value="porta_a_porta" className="text-foreground">Porta a Porta</SelectItem>
                     <SelectItem value="revenda" className="text-foreground">Revenda</SelectItem>
                     <SelectItem value="cliente_carteirizado" className="text-foreground">Cliente Carteirizado</SelectItem>
                   </SelectContent>
@@ -260,6 +261,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                   <SelectContent className="bg-background border-border">
                     <SelectItem value="varejo" className="text-foreground">Varejo</SelectItem>
                     <SelectItem value="distribuidor" className="text-foreground">Distribuidor</SelectItem>
+                    <SelectItem value="porta_a_porta" className="text-foreground">Porta a Porta</SelectItem>
                     <SelectItem value="revenda" className="text-foreground">Revenda</SelectItem>
                     <SelectItem value="cliente_carteirizado" className="text-foreground">Cliente Carteirizado</SelectItem>
                   </SelectContent>
