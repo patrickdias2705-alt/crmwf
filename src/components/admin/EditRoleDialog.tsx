@@ -95,7 +95,7 @@ export function EditRoleDialog({ open, onOpenChange, user, onSuccess }: EditRole
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="role">Nova Role</Label>
+              <Label htmlFor="role" className="text-white dark:text-white font-medium">Nova Role</Label>
               <Select
                 value={newRole}
                 onValueChange={setNewRole}

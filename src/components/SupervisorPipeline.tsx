@@ -161,6 +161,10 @@ export function SupervisorPipeline({ selectedAgent }: SupervisorPipelineProps) {
   };
 
   const handleMoveCard = async (leadId: string, newStageId: string) => {
+    // Supervisores não podem mover leads - apenas visualização
+    toast.error('Supervisores não podem mover leads. Apenas visualização permitida.');
+    return;
+    
     try {
       console.log('🔄 Moving lead', leadId, 'to stage', newStageId);
       

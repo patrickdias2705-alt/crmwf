@@ -92,8 +92,8 @@ export function useDashboardRealtime({
             const toName = to_stage.name.toLowerCase();
             
             // Cumulative metrics for intermediate stages
-            if (toName.includes('contato') || toName.includes('atendido')) {
-              console.log('📈 Incrementar atendidos');
+            if (toName.includes('contato') || toName.includes('atendido') || toName.includes('base qualificada')) {
+              console.log('📈 Incrementar base qualificada WF');
               newMetrics.leads_attended = (newMetrics.leads_attended || 0) + 1;
             }
             if (toName.includes('qualificado')) {

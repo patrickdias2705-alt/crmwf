@@ -64,8 +64,66 @@ export function DashboardStats() {
   ]);
 
   useEffect(() => {
-    // SEMPRE usar o tenant_id da Maria para garantir que todos vejam os mesmos dados
-    const effectiveTenantId = '8bd69047-7533-42f3-a2f7-e3a60477f68c';
+    // Usar o tenant_id do usuário logado
+    const effectiveTenantId = user?.tenant_id;
+    
+    if (!effectiveTenantId) {
+      console.error('❌ DashboardStats - Usuário sem tenant_id!');
+      // Manter stats zeradas mas sem quebrar
+      setStats([
+        {
+          title: "Total Leads",
+          value: "0",
+          change: "+0%",
+          changeType: "neutral" as const,
+          icon: Users,
+          color: "from-blue-500 to-cyan-500",
+          bgColor: "from-blue-500/10 to-cyan-500/10",
+          borderColor: "border-blue-500/20",
+        },
+        {
+          title: "Taxa de Conversão",
+          value: "0%",
+          change: "+0%",
+          changeType: "neutral" as const,
+          icon: Target,
+          color: "from-emerald-500 to-green-500",
+          bgColor: "from-emerald-500/10 to-green-500/10",
+          borderColor: "border-emerald-500/20",
+        },
+        {
+          title: "Total Vendido",
+          value: "R$ 0,00",
+          change: "+0%",
+          changeType: "neutral" as const,
+          icon: DollarSign,
+          color: "from-amber-500 to-orange-500",
+          bgColor: "from-amber-500/10 to-orange-500/10",
+          borderColor: "border-amber-500/20",
+        },
+        {
+          title: "Conversas Ativas",
+          value: "0",
+          change: "+0%",
+          changeType: "neutral" as const,
+          icon: MessageSquare,
+          color: "from-purple-500 to-pink-500",
+          bgColor: "from-purple-500/10 to-pink-500/10",
+          borderColor: "border-purple-500/20",
+        },
+        {
+          title: "Performance",
+          value: "Iniciando",
+          change: "Ativo",
+          changeType: "neutral" as const,
+          icon: Activity,
+          color: "from-rose-500 to-red-500",
+          bgColor: "from-rose-500/10 to-red-500/10",
+          borderColor: "border-rose-500/20",
+        },
+      ]);
+      return;
+    }
     
     console.log('🏠 DashboardStats - Tenant ID debug:', {
       userEmail: user?.email,
@@ -82,52 +140,73 @@ export function DashboardStats() {
     });
 
     const fetchStats = async () => {
-      // Base query builder for leads (TODOS os leads, não apenas recentes)
-      let leadsQuery = supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
-        // REMOVIDO filtro de data para buscar TODOS os leads
-      
-      // Filter by agent if viewing specific agent
-      if (isViewingAgent && viewingAgentId) {
-        leadsQuery = leadsQuery.eq('assigned_to', viewingAgentId);
-      }
+      try {
+        console.log('📊 DashboardStats - Iniciando fetchStats para tenant:', effectiveTenantId);
+        
+        // Base query builder for leads (TODOS os leads, não apenas recentes)
+        let leadsQuery = supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', effectiveTenantId);
+          // REMOVIDO filtro de data para buscar TODOS os leads
+        
+        // Filter by agent if viewing specific agent
+        if (isViewingAgent && viewingAgentId) {
+          leadsQuery = leadsQuery.eq('assigned_to', viewingAgentId);
+        }
 
-      const { count: leadsCount } = await leadsQuery;
+        const { count: leadsCount, error: leadsError } = await leadsQuery;
+        
+        if (leadsError) {
+          console.error('❌ DashboardStats - Erro ao buscar leads:', leadsError);
+        }
+        
+        console.log('📊 DashboardStats - Leads encontrados:', leadsCount);
 
-      // Base query for conversations
-      let conversationsQuery = supabase
-        .from('conversations')
-        .select('*, leads!inner(*)', { count: 'exact', head: true })
-        .eq('tenant_id', effectiveTenantId)
-        .eq('status', 'open');
-      
-      if (isViewingAgent && viewingAgentId) {
-        conversationsQuery = conversationsQuery.eq('leads.assigned_to', viewingAgentId);
-      }
+        // Base query for conversations
+        let conversationsQuery = supabase
+          .from('conversations')
+          .select('*, leads!inner(*)', { count: 'exact', head: true })
+          .eq('tenant_id', effectiveTenantId)
+          .eq('status', 'open');
+        
+        if (isViewingAgent && viewingAgentId) {
+          conversationsQuery = conversationsQuery.eq('leads.assigned_to', viewingAgentId);
+        }
 
-      const { count: conversationsCount } = await conversationsQuery;
+        const { count: conversationsCount, error: conversationsError } = await conversationsQuery;
+        
+        if (conversationsError) {
+          console.error('❌ DashboardStats - Erro ao buscar conversas:', conversationsError);
+        }
+        
+        console.log('📊 DashboardStats - Conversas encontradas:', conversationsCount);
 
-      // Buscar métricas para taxa de conversão (TODAS as métricas, não apenas recentes)
-      const { data: metricsData } = await supabase
-        .from('metrics_daily')
-        .select('leads_in, closed')
-        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
-        // REMOVIDO filtro de data para buscar TODAS as métricas
+        // Buscar métricas para taxa de conversão (TODAS as métricas, não apenas recentes)
+        const { data: metricsData, error: metricsError } = await supabase
+          .from('metrics_daily')
+          .select('leads_in, closed')
+          .eq('tenant_id', effectiveTenantId);
+          // REMOVIDO filtro de data para buscar TODAS as métricas
 
-      const totals = metricsData?.reduce((acc, day) => ({
-        leads_in: acc.leads_in + (day.leads_in || 0),
-        closed: acc.closed + (day.closed || 0)
-      }), { leads_in: 0, closed: 0 }) || { leads_in: 0, closed: 0 };
+        if (metricsError) {
+          console.error('❌ DashboardStats - Erro ao buscar métricas:', metricsError);
+        }
 
-      const conversionRate = totals.leads_in > 0 ? (totals.closed / totals.leads_in) * 100 : 0;
+        const totals = metricsData?.reduce((acc, day) => ({
+          leads_in: acc.leads_in + (day.leads_in || 0),
+          closed: acc.closed + (day.closed || 0)
+        }), { leads_in: 0, closed: 0 }) || { leads_in: 0, closed: 0 };
+
+        const conversionRate = totals.leads_in > 0 ? (totals.closed / totals.leads_in) * 100 : 0;
+        
+        console.log('📊 DashboardStats - Métricas calculadas:', { totals, conversionRate });
 
       // Buscar receita total da tabela sales (TODAS as vendas, não apenas recentes)
       let salesQuery = supabase
         .from('sales')
         .select('amount, lead_id')
-        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+        .eq('tenant_id', effectiveTenantId);
         // REMOVIDO filtro de data para buscar TODAS as vendas
 
       if (isViewingAgent && viewingAgentId) {
@@ -136,7 +215,7 @@ export function DashboardStats() {
           .from('leads')
           .select('id')
           .eq('assigned_to', viewingAgentId)
-          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+          .eq('tenant_id', effectiveTenantId);
         
         const agentLeadIds = agentLeads?.map(l => l.id) || [];
         if (agentLeadIds.length > 0) {
@@ -166,7 +245,7 @@ export function DashboardStats() {
         let leadsFieldsQuery = supabase
           .from('leads')
           .select('fields')
-          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+          .eq('tenant_id', effectiveTenantId)
           .eq('status', 'closed');
           // REMOVIDO filtro de data para buscar TODOS os leads fechados
         
@@ -250,6 +329,66 @@ export function DashboardStats() {
           borderColor: "border-rose-500/20",
         },
       ]);
+      
+      console.log('✅ DashboardStats - Stats atualizadas com sucesso');
+      
+      } catch (error) {
+        console.error('❌ DashboardStats - Erro geral ao buscar stats:', error);
+        
+        // Em caso de erro, manter stats zeradas mas sem quebrar
+        setStats([
+          {
+            title: "Total Leads",
+            value: "0",
+            change: "+0%",
+            changeType: "neutral" as const,
+            icon: Users,
+            color: "from-blue-500 to-cyan-500",
+            bgColor: "from-blue-500/10 to-cyan-500/10",
+            borderColor: "border-blue-500/20",
+          },
+          {
+            title: "Taxa de Conversão",
+            value: "0%",
+            change: "+0%",
+            changeType: "neutral" as const,
+            icon: Target,
+            color: "from-emerald-500 to-green-500",
+            bgColor: "from-emerald-500/10 to-green-500/10",
+            borderColor: "border-emerald-500/20",
+          },
+          {
+            title: "Total Vendido",
+            value: "R$ 0,00",
+            change: "+0%",
+            changeType: "neutral" as const,
+            icon: DollarSign,
+            color: "from-amber-500 to-orange-500",
+            bgColor: "from-amber-500/10 to-orange-500/10",
+            borderColor: "border-amber-500/20",
+          },
+          {
+            title: "Conversas Ativas",
+            value: "0",
+            change: "+0%",
+            changeType: "neutral" as const,
+            icon: MessageSquare,
+            color: "from-purple-500 to-pink-500",
+            bgColor: "from-purple-500/10 to-pink-500/10",
+            borderColor: "border-purple-500/20",
+          },
+          {
+            title: "Performance",
+            value: "Iniciando",
+            change: "Ativo",
+            changeType: "neutral" as const,
+            icon: Activity,
+            color: "from-rose-500 to-red-500",
+            bgColor: "from-rose-500/10 to-red-500/10",
+            borderColor: "border-rose-500/20",
+          },
+        ]);
+      }
     };
 
     fetchStats();
@@ -258,7 +397,7 @@ export function DashboardStats() {
     const leadsChannel = supabase
       .channel('dashboard-leads-stats')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
+        { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.${effectiveTenantId}` },
         () => {
           console.log('👤 Lead changed, refreshing dashboard stats');
           fetchStats();
@@ -269,7 +408,7 @@ export function DashboardStats() {
     const budgetsChannel = supabase
       .channel('dashboard-budgets-stats')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'budgets', filter: `leads.tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
+        { event: '*', schema: 'public', table: 'budgets', filter: `leads.tenant_id=eq.${effectiveTenantId}` },
         () => {
           console.log('💰 Budget changed, refreshing dashboard stats');
           fetchStats();

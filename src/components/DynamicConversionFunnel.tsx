@@ -32,14 +32,14 @@ export function DynamicConversionFunnel() {
       const channel = supabase
         .channel('funnel-realtime')
         .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'lead_events', filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
+          { event: '*', schema: 'public', table: 'lead_events', filter: `tenant_id=eq.${user?.tenant_id}` },
           () => {
             console.log('📊 Evento detectado! Atualizando funil...');
             fetchFunnelData();
           }
         )
         .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c` },
+          { event: '*', schema: 'public', table: 'leads', filter: `tenant_id=eq.${user?.tenant_id}` },
           () => {
             console.log('📊 Lead atualizado! Atualizando funil...');
             fetchFunnelData();
@@ -63,7 +63,7 @@ export function DynamicConversionFunnel() {
       const { data: stages, error: stagesError } = await supabase
         .from('stages')
         .select('id, name, color, order')
-        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+        .eq('tenant_id', user?.tenant_id)
         .order('order', { ascending: true });
 
       if (stagesError) {
@@ -88,7 +88,7 @@ export function DynamicConversionFunnel() {
           stage_id,
           stages!inner(name, color, order)
         `)
-        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+        .eq('tenant_id', user?.tenant_id);
 
       if (leadsError) {
         console.error('❌ Erro ao buscar leads:', leadsError);

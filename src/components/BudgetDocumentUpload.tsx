@@ -256,7 +256,7 @@ export function BudgetDocumentUpload({ leadId, leadName, onDocumentUploaded }: B
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="description">Descrição do Orçamento</Label>
+                <Label htmlFor="description" className="text-white dark:text-white font-medium">Descrição do Orçamento</Label>
                 <Textarea
                   id="description"
                   placeholder="Descreva o orçamento, produtos/serviços incluídos..."
@@ -267,7 +267,7 @@ export function BudgetDocumentUpload({ leadId, leadName, onDocumentUploaded }: B
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="amount">Valor (R$)</Label>
+                <Label htmlFor="amount" className="text-white dark:text-white font-medium">Valor (R$)</Label>
                 <Input
                   id="amount"
                   type="number"
@@ -280,7 +280,7 @@ export function BudgetDocumentUpload({ leadId, leadName, onDocumentUploaded }: B
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="file">Arquivo do Orçamento</Label>
+                <Label htmlFor="file" className="text-white dark:text-white font-medium">Arquivo do Orçamento</Label>
                 <Input
                   id="file"
                   type="file"

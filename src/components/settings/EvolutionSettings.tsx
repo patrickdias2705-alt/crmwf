@@ -444,7 +444,7 @@ export function EvolutionSettings() {
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="api_url">URL da Evolution API</Label>
+              <Label htmlFor="api_url" className="text-white dark:text-white font-medium">URL da Evolution API</Label>
               <Input
                 id="api_url"
                 placeholder="https://evolutionapi.dentechia.shop"
@@ -459,7 +459,7 @@ export function EvolutionSettings() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="api_token">Token da API</Label>
+              <Label htmlFor="api_token" className="text-white dark:text-white font-medium">Token da API</Label>
               <Input
                 id="api_token"
                 type="password"
@@ -474,7 +474,7 @@ export function EvolutionSettings() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="instance_name">Nome da Instância</Label>
+              <Label htmlFor="instance_name" className="text-white dark:text-white font-medium">Nome da Instância</Label>
               <Input
                 id="instance_name"
                 placeholder="minha-instancia"

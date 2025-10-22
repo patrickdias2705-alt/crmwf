@@ -441,7 +441,7 @@ export default function Conversations() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="atendido">Atendido</SelectItem>
+                        <SelectItem value="atendido">Base Qualificada WF</SelectItem>
                         <SelectItem value="qualificado">Qualificado</SelectItem>
                         <SelectItem value="fechado">Fechado</SelectItem>
                         <SelectItem value="perdido">Perdido</SelectItem>

@@ -88,7 +88,7 @@ export function Layout({ children }: LayoutProps) {
             </DropdownMenu>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6 bg-gradient-to-br from-transparent via-primary/3 to-accent/3">
+        <main className="flex-1 overflow-auto p-4 bg-gradient-to-br from-transparent via-primary/3 to-accent/3">
           <TenantViewBanner />
           {children}
         </main>

@@ -98,7 +98,7 @@ export function CreateBudgetDialog({ leadId, leadName, onBudgetCreated }: Create
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="value">Valor (R$) *</Label>
+            <Label htmlFor="value" className="text-white dark:text-white font-medium">Valor (R$) *</Label>
             <Input
               id="value"
               type="number"
@@ -112,7 +112,7 @@ export function CreateBudgetDialog({ leadId, leadName, onBudgetCreated }: Create
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Descrição</Label>
+            <Label htmlFor="description" className="text-white dark:text-white font-medium">Descrição</Label>
             <Textarea
               id="description"
               value={formData.description}
@@ -123,7 +123,7 @@ export function CreateBudgetDialog({ leadId, leadName, onBudgetCreated }: Create
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="roi">ROI Estimado (%)</Label>
+            <Label htmlFor="roi" className="text-white dark:text-white font-medium">ROI Estimado (%)</Label>
             <Input
               id="roi"
               type="number"

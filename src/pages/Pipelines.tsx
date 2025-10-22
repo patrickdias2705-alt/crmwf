@@ -95,33 +95,48 @@ export default function Pipelines() {
     try {
       console.log('📊 Pipelines - Loading for:', { 
         viewingAgentId, 
-        isViewingAgent 
+        isViewingAgent,
+        userEmail: user?.email,
+        userRole: user?.role,
+        isSupervisor: hasRole(['supervisor'])
       });
 
-      // Load stages
+      // SEMPRE usar o tenant_id do usuário logado para ver as pipelines corretas
+      const effectiveTenantId = user?.tenant_id;
+      
+      console.log('🏠 Pipelines - Usando tenant do usuário:', effectiveTenantId);
+
+      // Load stages - SEMPRE do usuário logado
       const { data: stagesData, error: stagesError } = await supabase
         .from('stages')
         .select('*')
-        .eq('tenant_id', user?.tenant_id)
+        .eq('tenant_id', effectiveTenantId)
         .order('order');
 
       if (stagesError) throw stagesError;
 
-      // Load leads with optional agent filter
+      // Load leads - SEMPRE do usuário logado, mas com filtro de agente se necessário
       let leadsQuery = supabase
         .from('leads')
         .select('*')
-        .eq('tenant_id', user?.tenant_id);
+        .eq('tenant_id', effectiveTenantId);
 
       // Filter by agent if viewing specific agent
       if (isViewingAgent && viewingAgentId) {
         leadsQuery = leadsQuery.eq('assigned_to', viewingAgentId);
+        console.log('👤 Pipelines - Filtrando por agente:', viewingAgentId);
       }
 
       const { data: leadsData, error: leadsError } = await leadsQuery
         .order('updated_at', { ascending: false });
 
       if (leadsError) throw leadsError;
+
+      console.log('📊 Pipelines - Dados carregados:', {
+        stages: stagesData?.length || 0,
+        leads: leadsData?.length || 0,
+        effectiveTenantId
+      });
 
       setStages(stagesData || []);
       setLeads((leadsData || []).map(lead => ({
@@ -138,6 +153,12 @@ export default function Pipelines() {
   };
 
   const handleMoveCard = async (cardId: string, newStageId: string) => {
+    // Verificar se o usuário pode mover leads
+    if (hasRole(['supervisor'])) {
+      toast.error('Supervisores não podem mover leads. Apenas visualização permitida.');
+      return;
+    }
+
     try {
       console.log(`Moving lead ${cardId} to stage ${newStageId}`);
       
@@ -238,8 +259,20 @@ export default function Pipelines() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Pipelines</h1>
             <p className="text-muted-foreground">
-              Gerencie seus leads através do pipeline de vendas
+              {hasRole(['supervisor']) 
+                ? 'Visualização das pipelines (somente leitura)'
+                : 'Gerencie seus leads através do pipeline de vendas'
+              }
             </p>
+            {/* Debug info */}
+            <div className="mt-1 text-xs text-gray-500">
+              Debug: Role={user?.role}, isSupervisor={hasRole(['supervisor']) ? 'true' : 'false'}
+            </div>
+            {hasRole(['supervisor']) && (
+              <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                👁️ Modo Visualização
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <ManageStagesDialog />
@@ -301,7 +334,10 @@ export default function Pipelines() {
           <CardHeader>
             <CardTitle>Pipeline de Vendas</CardTitle>
             <CardDescription>
-              Arraste e solte os leads entre os estágios para atualizar o status
+              {hasRole(['supervisor']) 
+                ? 'Visualização das pipelines (somente leitura)'
+                : 'Arraste e solte os leads entre os estágios para atualizar o status'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -313,6 +349,7 @@ export default function Pipelines() {
                 getStageStats={getStageStats}
                 onLeadUpdated={loadData}
                 onLeadDoubleClick={handleLeadDoubleClick}
+                canMoveLeads={!hasRole(['supervisor'])}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-64 text-muted-foreground p-6">

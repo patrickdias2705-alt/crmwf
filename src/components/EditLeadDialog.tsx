@@ -250,7 +250,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
           {/* Informações Básicas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nome *</Label>
+              <Label htmlFor="name" className="text-white dark:text-white font-medium">Nome *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -261,7 +261,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
+              <Label htmlFor="phone" className="text-white dark:text-white font-medium">Telefone</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -271,7 +271,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-white dark:text-white font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -282,7 +282,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="source">Fonte</Label>
+              <Label htmlFor="source" className="text-white dark:text-white font-medium">Fonte</Label>
               <Select value={formData.source} onValueChange={(value) => setFormData({ ...formData, source: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a fonte" />
@@ -303,7 +303,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stage">Estágio</Label>
+              <Label htmlFor="stage" className="text-white dark:text-white font-medium">Estágio</Label>
               <Select value={formData.stage_id} onValueChange={(value) => setFormData({ ...formData, stage_id: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o estágio" />
@@ -319,7 +319,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="budget_amount">Valor do Orçamento (R$)</Label>
+              <Label htmlFor="budget_amount" className="text-white dark:text-white font-medium">Valor do Orçamento (R$)</Label>
               <Input
                 id="budget_amount"
                 type="number"
@@ -331,7 +331,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="order_number">Número do Pedido</Label>
+              <Label htmlFor="order_number" className="text-white dark:text-white font-medium">Número do Pedido</Label>
               <Input
                 id="order_number"
                 value={formData.order_number}
@@ -343,7 +343,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
 
           {/* Descrição do Orçamento */}
           <div className="space-y-2">
-            <Label htmlFor="budget_description">Descrição do Orçamento</Label>
+            <Label htmlFor="budget_description" className="text-white dark:text-white font-medium">Descrição do Orçamento</Label>
             <Textarea
               id="budget_description"
               value={formData.budget_description}
@@ -457,7 +457,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
 
           {/* Notas */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notas</Label>
+            <Label htmlFor="notes" className="text-white dark:text-white font-medium">Notas</Label>
             <Textarea
               id="notes"
               value={formData.notes}

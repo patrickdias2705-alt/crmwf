@@ -286,9 +286,9 @@ export default function Leads() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header melhorado */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-6 border border-blue-200/50 dark:border-blue-800/50">
+      <div className="space-y-4 max-w-full">
+        {/* Header otimizado */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl p-4 border border-blue-200/50 dark:border-blue-800/50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button
@@ -302,10 +302,10 @@ export default function Leads() {
               </Button>
               <div className="h-8 w-px bg-blue-200 dark:bg-blue-800" />
               <div>
-                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   Gestão de Leads
                 </h1>
-                <p className="text-blue-600/80 dark:text-blue-400/80 mt-1">
+                <p className="text-blue-600/80 dark:text-blue-400/80 text-sm">
                   Gerencie todos os seus leads em um só lugar
                 </p>
               </div>
@@ -319,9 +319,9 @@ export default function Leads() {
           </div>
         </div>
 
-        {/* Filtros melhorados */}
+        {/* Filtros otimizados */}
         <Card className="border-0 shadow-lg bg-gradient-to-r from-white to-gray-50 dark:from-gray-900 dark:to-gray-800">
-          <CardHeader className="pb-4">
+          <CardHeader className="pb-3">
             <div className="flex items-center space-x-2">
               <Filter className="h-5 w-5 text-blue-600" />
               <CardTitle className="text-xl">Filtros e Busca</CardTitle>
@@ -331,7 +331,7 @@ export default function Leads() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Buscar Lead</label>
                 <div className="relative">
@@ -369,7 +369,7 @@ export default function Leads() {
                   <SelectContent>
                     <SelectItem value="all">Todos os estágios</SelectItem>
                     <SelectItem value="novo">Novo</SelectItem>
-                    <SelectItem value="atendido">Atendido</SelectItem>
+                    <SelectItem value="atendido">Base Qualificada WF</SelectItem>
                     <SelectItem value="qualificado">Qualificado</SelectItem>
                     <SelectItem value="fechado">Fechado</SelectItem>
                   </SelectContent>
@@ -403,19 +403,19 @@ export default function Leads() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Contato</TableHead>
-                    <TableHead>Nº Pedido</TableHead>
-                    <TableHead>Fonte</TableHead>
-                    <TableHead>Estágio</TableHead>
-                    <TableHead>Orçamento</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead>Criado em</TableHead>
-                    <TableHead>Última interação</TableHead>
-                    <TableHead>Ações</TableHead>
+                    <TableHead className="min-w-[150px]">Nome</TableHead>
+                    <TableHead className="min-w-[120px]">Contato</TableHead>
+                    <TableHead className="min-w-[100px]">Pedido</TableHead>
+                    <TableHead className="min-w-[100px]">Fonte</TableHead>
+                    <TableHead className="min-w-[120px]">Estágio</TableHead>
+                    <TableHead className="min-w-[140px]">Orçamento</TableHead>
+                    <TableHead className="min-w-[100px]">Tags</TableHead>
+                    <TableHead className="min-w-[100px]">Criado</TableHead>
+                    <TableHead className="min-w-[120px]">Última Ação</TableHead>
+                    <TableHead className="min-w-[120px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -427,41 +427,41 @@ export default function Leads() {
                       }`}
                     >
                       <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span className={lead.is_closed ? 'text-green-600 font-semibold' : ''}>
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3 text-muted-foreground" />
+                          <span className={`text-sm ${lead.is_closed ? 'text-green-600 font-semibold' : ''}`}>
                             {lead.name}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="space-y-1">
-                          <div className="flex items-center gap-2 text-sm">
+                          <div className="flex items-center gap-1 text-xs">
                             <Phone className="h-3 w-3 text-muted-foreground" />
-                            {lead.phone}
+                            <span className="truncate max-w-[100px]">{lead.phone}</span>
                           </div>
                           {lead.email && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Mail className="h-3 w-3" />
-                              {lead.email}
+                              <span className="truncate max-w-[100px]">{lead.email}</span>
                             </div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                        <div className="text-xs">
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 text-xs px-1 py-0">
                             {lead.order_number || 'N/A'}
                           </Badge>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getSourceColor(lead.source)}>
+                        <Badge variant="outline" className={`text-xs px-1 py-0 ${getSourceColor(lead.source)}`}>
                           {lead.source}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">
+                        <Badge variant="secondary" className="text-xs px-1 py-0">
                           {lead.stage_name}
                         </Badge>
                       </TableCell>
@@ -474,9 +474,6 @@ export default function Leads() {
                                 currency: 'BRL'
                               }).format(lead.fields.budget_amount || 0)}
                             </div>
-                            <div className="text-xs text-green-700 truncate max-w-32">
-                              📝 {lead.fields.budget_description || 'Sem descrição'}
-                            </div>
                             <button 
                               onClick={() => {
                                 // Criar link de download para o arquivo Base64
@@ -488,43 +485,48 @@ export default function Leads() {
                                 link.click();
                                 document.body.removeChild(link);
                               }}
-                              className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 animate-pulse"
+                              className="text-xs bg-green-600 text-white px-1 py-0.5 rounded hover:bg-green-700"
                             >
-                              📄 Baixar
+                              📄
                             </button>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground text-sm">Sem orçamento</span>
+                          <span className="text-muted-foreground text-xs">Sem orçamento</span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {lead.tags.map((tag, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {tag}
+                        <div className="flex flex-wrap gap-1 max-w-[80px]">
+                          {lead.tags.slice(0, 2).map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs px-1 py-0">
+                              {tag.length > 8 ? tag.substring(0, 8) + '...' : tag}
                             </Badge>
                           ))}
+                          {lead.tags.length > 2 && (
+                            <Badge variant="outline" className="text-xs px-1 py-0">
+                              +{lead.tags.length - 2}
+                            </Badge>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
+                      <TableCell className="text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {formatDate(lead.created_at)}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
+                      <TableCell className="text-xs text-muted-foreground">
                         {lead.last_interaction ? formatDate(lead.last_interaction) : '-'}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                           <ActionButton
                             variant="ghost"
                             size="sm"
                             onClick={() => handleEditLead(lead)}
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 h-6 w-6 p-0"
                             title="Editar lead"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3 w-3" />
                           </ActionButton>
                           <MakeLeadPublicButton 
                             leadId={lead.id}

@@ -18,7 +18,7 @@ export function MarkAsSoldButton({
   budgetAmount,
   onSuccess 
 }: MarkAsSoldButtonProps) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const [loading, setLoading] = useState(false);
   const [isSold, setIsSold] = useState(false);
 
@@ -42,6 +42,12 @@ export function MarkAsSoldButton({
   const handleMarkAsSold = async () => {
     if (isSold) return; // Não fazer nada se já vendido
 
+    // Verificar se é supervisor - supervisores não podem marcar como vendido
+    if (hasRole(['supervisor'])) {
+      toast.error('Supervisores não podem marcar leads como vendidos. Apenas visualização permitida.');
+      return;
+    }
+
     try {
       setLoading(true);
       console.log('🎯 Iniciando processo de marcar como vendido...');
@@ -57,11 +63,11 @@ export function MarkAsSoldButton({
         return;
       }
 
-      // Buscar stage "Fechado" ou similar - SEMPRE usar o tenant_id da Maria
+      // Buscar stage "Fechado" ou similar - SEMPRE usar o tenant_id do usuário logado
       const { data: stages, error: stagesError } = await supabase
         .from('stages')
         .select('id, name')
-        .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+        .eq('tenant_id', user?.tenant_id)
         .or('name.ilike.%fechado%,name.ilike.%vendido%,name.ilike.%ganho%,name.ilike.%bolso%');
 
       if (stagesError) {
@@ -95,9 +101,9 @@ export function MarkAsSoldButton({
 
       console.log('✅ Lead movido para estágio fechado');
 
-      // Criar registro de venda na tabela dedicada - SEMPRE usar o tenant_id da Maria
+      // Criar registro de venda na tabela dedicada - SEMPRE usar o tenant_id do usuário logado
       const saleData = {
-        tenant_id: '8bd69047-7533-42f3-a2f7-e3a60477f68c',
+        tenant_id: user?.tenant_id,
         lead_id: leadId,
         amount: budgetAmount,
         stage_id: closedStageId,

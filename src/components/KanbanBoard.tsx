@@ -37,13 +37,19 @@ interface KanbanBoardProps {
   getStageStats: (stageId: string) => { count: number; value: number };
   onLeadUpdated?: () => void;
   onLeadDoubleClick?: (lead: Lead) => void;
+  canMoveLeads?: boolean;
 }
 
-export function KanbanBoard({ stages, leads, onMoveCard, getStageStats, onLeadUpdated, onLeadDoubleClick }: KanbanBoardProps) {
+export function KanbanBoard({ stages, leads, onMoveCard, getStageStats, onLeadUpdated, onLeadDoubleClick, canMoveLeads = true }: KanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
 
   const handleDragStart = (event: DragStartEvent) => {
+    if (!canMoveLeads) {
+      event.preventDefault();
+      return;
+    }
+    
     const { active } = event;
     setActiveId(active.id as string);
     
@@ -52,6 +58,12 @@ export function KanbanBoard({ stages, leads, onMoveCard, getStageStats, onLeadUp
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (!canMoveLeads) {
+      setActiveId(null);
+      setDraggedLead(null);
+      return;
+    }
+    
     const { active, over } = event;
     
     if (!over) return;

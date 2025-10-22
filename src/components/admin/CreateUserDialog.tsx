@@ -118,7 +118,7 @@ export function CreateUserDialog({ open, onOpenChange, tenants, onSuccess }: Cre
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Nome</Label>
+              <Label htmlFor="name" className="text-white dark:text-white font-medium">Nome</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -127,7 +127,7 @@ export function CreateUserDialog({ open, onOpenChange, tenants, onSuccess }: Cre
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-white dark:text-white font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -137,7 +137,7 @@ export function CreateUserDialog({ open, onOpenChange, tenants, onSuccess }: Cre
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Senha</Label>
+              <Label htmlFor="password" className="text-white dark:text-white font-medium">Senha</Label>
               <Input
                 id="password"
                 type="password"
@@ -147,7 +147,7 @@ export function CreateUserDialog({ open, onOpenChange, tenants, onSuccess }: Cre
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="role">Role</Label>
+              <Label htmlFor="role" className="text-white dark:text-white font-medium">Role</Label>
               <Select
                 value={formData.role}
                 onValueChange={(value) => setFormData({ ...formData, role: value })}
@@ -163,7 +163,7 @@ export function CreateUserDialog({ open, onOpenChange, tenants, onSuccess }: Cre
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="tenant">Tenant</Label>
+              <Label htmlFor="tenant" className="text-white dark:text-white font-medium">Tenant</Label>
               <Select
                 value={formData.tenantId}
                 onValueChange={(value) => setFormData({ ...formData, tenantId: value })}

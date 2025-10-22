@@ -434,13 +434,13 @@ export default function Metrics() {
   }, []);
 
   useEffect(() => {
-    // Sempre carregar métricas usando o tenant_id da Maria
+    // Sempre carregar métricas usando o tenant_id do usuário logado
     fetchMetrics();
   }, [period, viewingAgentId, isViewingAgent]);
 
   // Atualização em tempo real
   useEffect(() => {
-    // Sempre ativar real-time usando o tenant_id da Maria
+    // Sempre ativar real-time usando o tenant_id do usuário logado
 
     const channel = supabase
       .channel('metrics-realtime')
@@ -466,7 +466,7 @@ export default function Metrics() {
   }, []); // Sempre ativo
 
   useEffect(() => {
-    // Sempre ativar real-time usando o tenant_id da Maria
+    // Sempre ativar real-time usando o tenant_id do usuário logado
 
     // Subscribe to realtime changes for leads, stages, budgets
     const leadsChannel = supabase
@@ -544,9 +544,14 @@ export default function Metrics() {
 
   const fetchMetrics = async () => {
     try {
-      // FORÇAR uso do tenant_id da Maria para todos os usuários
-      // Este será atualizado após executar o script SQL
-      const effectiveTenantId = '8bd69047-7533-42f3-a2f7-e3a60477f68c';
+      // Usar o tenant_id do usuário logado
+      const effectiveTenantId = user?.tenant_id;
+      
+      if (!effectiveTenantId) {
+        console.error('❌ Metrics - Usuário sem tenant_id!');
+        throw new Error('Usuário sem tenant_id');
+      }
+      
       console.log('📊 Iniciando fetchMetrics...', { 
         user: user?.email, 
         userTenantId: user?.tenant_id,
@@ -847,7 +852,7 @@ export default function Metrics() {
       let leadsData: any[] = [];
       
       // Buscar vendas do fields dos leads (fallback) - versão simplificada
-      // SEMPRE buscar todas as vendas da Maria (sem filtro por agente)
+      // SEMPRE buscar todas as vendas do usuário logado (sem filtro por agente)
       // Usando a mesma lógica já implementada acima
       console.log('📊 Usando vendas já calculadas:', salesCount);
 
@@ -1096,7 +1101,7 @@ export default function Metrics() {
                 subtitle=""
                 onDataRequest={async (period, metricTitle) => {
                   // Função para buscar dados expandidos baseado na métrica
-                  const effectiveTenantId = '8bd69047-7533-42f3-a2f7-e3a60477f68c';
+                  const effectiveTenantId = user?.tenant_id;
                   return await fetchExpandedMetricData(period, metricTitle, effectiveTenantId);
                 }}
               />

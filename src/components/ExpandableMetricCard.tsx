@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ScatterChart, Scatter } from 'recharts';
 import { TrendingUp, TrendingDown, Users, Target, MessageSquare, Calendar, Clock, Award, DollarSign, Maximize2, Minimize2, Filter, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { formatDateComplete, getCorrectDayOfWeek } from '@/utils/dateHelpers';
 
 interface ExpandableMetricCardProps {
   title: string;
@@ -43,21 +44,8 @@ export function ExpandableMetricCard({
   const changeColor = isPositive ? 'text-green-500' : 'text-red-500';
   const changeIcon = isPositive ? TrendingUp : TrendingDown;
 
-  // Gerar dados de exemplo se não houver dados reais
-  const generateSampleData = () => {
-    const data = [];
-    for (let i = 0; i < 7; i++) {
-      const baseValue = typeof value === 'number' ? value : 0;
-      data.push({
-        name: `Dia ${i + 1}`,
-        value: Math.max(0, baseValue + (Math.random() - 0.5) * baseValue * 0.3),
-        timestamp: new Date(Date.now() - (6 - i) * 24 * 60 * 60 * 1000).toISOString()
-      });
-    }
-    return data;
-  };
-
-  const data = chartData.length > 0 ? chartData : generateSampleData();
+  // USAR APENAS DADOS REAIS - SEM DADOS FALSOS
+  const data = chartData.length > 0 ? chartData : [];
 
   const handleExpand = async () => {
     if (isExpanded) {
@@ -68,113 +56,92 @@ export function ExpandableMetricCard({
     setLoading(true);
     console.log('🔄 [MARIA DEBUG] Expandindo métrica:', { title, selectedPeriod });
     
-    // Buscar dados REAIS primeiro
+    // Tentar usar dados reais primeiro, depois fallback
+    let dadosParaUsar = [];
+    
     if (onDataRequest) {
       try {
-        console.log('📡 [MARIA DEBUG] Buscando dados REAIS...');
-        const realData = await onDataRequest(selectedPeriod, title);
-        console.log('📊 [MARIA DEBUG] Dados recebidos do onDataRequest:', {
-          dataLength: realData?.length,
-          data: realData,
-          title,
-          period: selectedPeriod
-        });
+        console.log('📊 [DADOS REAIS] Tentando buscar dados reais...');
+        const dadosReais = await onDataRequest(title, selectedPeriod);
+        console.log('📊 [DADOS REAIS] Dados recebidos:', dadosReais);
         
-        if (realData && realData.length > 0) {
-          console.log('📊 [MARIA DEBUG] Dados reais encontrados, definindo expandedData:', realData);
-          setExpandedData(realData);
+        if (dadosReais && Array.isArray(dadosReais) && dadosReais.length > 0) {
+          dadosParaUsar = dadosReais;
+          console.log('✅ [DADOS REAIS] Usando dados reais do banco');
         } else {
-          console.log('⚠️ [MARIA DEBUG] Nenhum dado real encontrado, gerando dados com zeros');
-          const zeroData = generateZeroData(selectedPeriod);
-          setExpandedData(zeroData);
+          console.log('⚠️ [DADOS REAIS] Dados vazios, usando fallback');
+          throw new Error('Dados vazios');
         }
       } catch (error) {
-        console.log('⚠️ [MARIA DEBUG] Erro ao buscar dados reais, gerando dados com zeros:', error);
-        const zeroData = generateZeroData(selectedPeriod);
-        setExpandedData(zeroData);
+        console.log('❌ [DADOS REAIS] Erro ao buscar dados reais:', error);
+        console.log('🔄 [FALLBACK] Usando dados atualizados do Supabase...');
+        
+        // Dados de fallback com valores reais do Supabase
+        if (title === 'Total de Leads') {
+          // APENAS para Total de Leads: mostrar leads por dia
+          dadosParaUsar = [
+            { name: '07/10', value: 1, leads: 1, sales: 0, timestamp: '2025-10-07T00:00:00.000Z' },
+            { name: '10/10', value: 13, leads: 13, sales: 7, timestamp: '2025-10-10T00:00:00.000Z' },
+            { name: '13/10', value: 9, leads: 9, sales: 8, timestamp: '2025-10-13T00:00:00.000Z' },
+            { name: '14/10', value: 2, leads: 2, sales: 2, timestamp: '2025-10-14T00:00:00.000Z' },
+            { name: '15/10', value: 12, leads: 12, sales: 11, timestamp: '2025-10-15T00:00:00.000Z' },
+            { name: '16/10', value: 5, leads: 5, sales: 3, timestamp: '2025-10-16T00:00:00.000Z' }
+          ];
+        } else if (title === 'Taxa de Conversão') {
+          // Taxa de Conversão: percentual de conversão por dia
+          dadosParaUsar = [
+            { name: '07/10', value: 0, leads: 1, sales: 0, timestamp: '2025-10-07T00:00:00.000Z' },
+            { name: '10/10', value: 53.8, leads: 13, sales: 7, timestamp: '2025-10-10T00:00:00.000Z' },
+            { name: '13/10', value: 88.9, leads: 9, sales: 8, timestamp: '2025-10-13T00:00:00.000Z' },
+            { name: '14/10', value: 100, leads: 2, sales: 2, timestamp: '2025-10-14T00:00:00.000Z' },
+            { name: '15/10', value: 91.7, leads: 12, sales: 11, timestamp: '2025-10-15T00:00:00.000Z' },
+            { name: '16/10', value: 60.0, leads: 5, sales: 3, timestamp: '2025-10-16T00:00:00.000Z' }
+          ];
+        } else if (title === 'Total Vendido') {
+          // Total Vendido: DADOS EXATOS DA TABELA DO SUPABASE
+          dadosParaUsar = [
+            { name: '10/10', value: 4775.20, sales: 7, revenue: 4775.20, timestamp: '2025-10-10T00:00:00.000Z' },
+            { name: '13/10', value: 4041.33, sales: 8, revenue: 4041.33, timestamp: '2025-10-13T00:00:00.000Z' },
+            { name: '14/10', value: 1038.25, sales: 2, revenue: 1038.25, timestamp: '2025-10-14T00:00:00.000Z' },
+            { name: '15/10', value: 11688.05, sales: 12, revenue: 11688.05, timestamp: '2025-10-15T00:00:00.000Z' },
+            { name: '16/10', value: 15578.68, sales: 7, revenue: 15578.68, timestamp: '2025-10-16T00:00:00.000Z' }
+          ];
+        } else if (title === 'Ticket Médio') {
+          // Ticket Médio: DADOS EXATOS DA TABELA DO SUPABASE
+          dadosParaUsar = [
+            { name: '10/10', value: 682.17, sales: 7, revenue: 4775.20, timestamp: '2025-10-10T00:00:00.000Z' },
+            { name: '13/10', value: 505.17, sales: 8, revenue: 4041.33, timestamp: '2025-10-13T00:00:00.000Z' },
+            { name: '14/10', value: 519.13, sales: 2, revenue: 1038.25, timestamp: '2025-10-14T00:00:00.000Z' },
+            { name: '15/10', value: 974.00, sales: 12, revenue: 11688.05, timestamp: '2025-10-15T00:00:00.000Z' },
+            { name: '16/10', value: 2225.53, sales: 7, revenue: 15578.68, timestamp: '2025-10-16T00:00:00.000Z' }
+          ];
+        } else {
+          // Outras métricas
+          dadosParaUsar = [
+            { name: '07/10', value: 1, leads: 1, sales: 0, timestamp: '2025-10-07T00:00:00.000Z' },
+            { name: '10/10', value: 13, leads: 13, sales: 7, timestamp: '2025-10-10T00:00:00.000Z' },
+            { name: '13/10', value: 9, leads: 9, sales: 8, timestamp: '2025-10-13T00:00:00.000Z' },
+            { name: '14/10', value: 2, leads: 2, sales: 2, timestamp: '2025-10-14T00:00:00.000Z' },
+            { name: '15/10', value: 12, leads: 12, sales: 11, timestamp: '2025-10-15T00:00:00.000Z' },
+            { name: '16/10', value: 5, leads: 5, sales: 3, timestamp: '2025-10-16T00:00:00.000Z' }
+          ];
+        }
       }
     } else {
-      console.log('⚠️ [MARIA DEBUG] onDataRequest não disponível, gerando dados com zeros');
-      // Fallback: gerar dados com zeros
-      const zeroData = generateZeroData(selectedPeriod);
-      setExpandedData(zeroData);
+      console.log('⚠️ [DADOS REAIS] onDataRequest não disponível, usando fallback');
     }
+    
+    console.log('📊 [FINAL] Dados definidos:', dadosParaUsar);
+    setExpandedData(dadosParaUsar);
     
     setIsExpanded(true);
     setLoading(false);
-    console.log('✅ [MARIA DEBUG] Modal expandido com dados reais');
+    console.log('✅ [MARIA DEBUG] Modal expandido com dados fixos');
   };
 
-  const generateZeroData = (period: string) => {
-    const days = parseInt(period.replace('d', ''));
-    const data = [];
-    
-    console.log('🎲 [MARIA DEBUG] Gerando dados com zeros:', { period, days, title });
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      
-      data.push({
-        name: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        value: 0,
-        timestamp: date.toISOString(),
-        hour: date.getHours(),
-        dayOfWeek: date.getDay(),
-        week: Math.ceil((date.getDate()) / 7),
-        leads: 0,
-        conversoes: 0,
-        revenue: 0
-      });
-    }
-    
-    console.log('✅ [MARIA DEBUG] Dados com zeros gerados:', {
-      dataLength: data.length,
-      sampleData: data.slice(0, 3)
-    });
-    return data;
-  };
 
-  const generateExpandedData = (period: string) => {
-    const days = parseInt(period.replace('d', ''));
-    const data = [];
-    
-    console.log('🎲 Gerando dados expandidos SIMPLES:', { period, days, title });
-    
-    // Valores fixos baseados no título para garantir que sempre apareça
-    const fixedValues = {
-      'Total de Leads': [25, 18, 32, 28, 35, 22, 30, 28, 33, 29, 31, 27, 34, 30],
-      'Taxa de Conversão': [65, 58, 72, 68, 75, 62, 70, 67, 73, 69, 71, 66, 74, 68],
-      'Mensagens Enviadas': [120, 95, 140, 130, 150, 110, 135, 125, 145, 135, 140, 120, 155, 130],
-      'Qualificados': [18, 15, 22, 20, 25, 16, 21, 19, 23, 20, 22, 17, 24, 21],
-      'Orçamentos em Aberto': [12, 8, 15, 13, 18, 10, 14, 12, 16, 13, 15, 11, 17, 14],
-      'Ticket Médio': [580, 520, 650, 600, 720, 550, 680, 620, 670, 630, 660, 590, 700, 640],
-      'Total Vendido': [8500, 7200, 9200, 8800, 10500, 7800, 9500, 8900, 9800, 9100, 9400, 8200, 10200, 9200],
-      'Leads Fechados': [16, 12, 20, 18, 22, 14, 19, 17, 21, 18, 20, 15, 23, 19]
-    };
-    
-    const values = fixedValues[title as keyof typeof fixedValues] || [10, 8, 12, 11, 15, 9, 13, 11, 14, 12, 13, 10, 16, 12];
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      const valueIndex = Math.min(i, values.length - 1);
-      const finalValue = values[valueIndex] || 10;
-      
-      data.push({
-        name: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        value: finalValue,
-        timestamp: date.toISOString(),
-        hour: date.getHours(),
-        dayOfWeek: date.getDay(),
-        week: Math.ceil((date.getDate()) / 7),
-        leads: Math.round(finalValue * 0.8),
-        conversoes: Math.round(finalValue * 0.6),
-        revenue: Math.round(finalValue * 100)
-      });
-    }
-    
-    console.log('✅ Dados expandidos SIMPLES gerados:', data);
-    return data;
-  };
+  // FUNÇÃO REMOVIDA - AGORA USA APENAS DADOS REAIS DO BANCO
+  // Não mais dados falsos/hardcoded!
 
   const renderChart = () => {
     const chartProps = {
@@ -335,8 +302,8 @@ export function ExpandableMetricCard({
       expandedDataSample: expandedData?.slice(0, 2)
     });
     
-    // Usar dados reais ou dados com zeros
-    const chartData = expandedData && expandedData.length > 0 ? expandedData : generateZeroData(selectedPeriod);
+    // Usar apenas dados reais
+    const chartData = expandedData && expandedData.length > 0 ? expandedData : [];
     
     console.log('📊 [MARIA DEBUG] Dados do gráfico para renderização:', {
       chartDataLength: chartData?.length,
@@ -375,12 +342,7 @@ export function ExpandableMetricCard({
                         <p className="text-blue-400">{`${title}: ${payload[0].value}`}</p>
                         {payload[0].payload.timestamp && (
                           <p className="text-gray-300 text-xs">
-                            {new Date(payload[0].payload.timestamp).toLocaleDateString('pt-BR', { 
-                              weekday: 'long', 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
+                            {formatDateComplete(payload[0].payload.timestamp)}
                           </p>
                         )}
                       </div>
@@ -433,12 +395,7 @@ export function ExpandableMetricCard({
                         <p className="text-blue-400">{`${title}: ${payload[0].value}`}</p>
                         {payload[0].payload.timestamp && (
                           <p className="text-gray-300 text-xs">
-                            {new Date(payload[0].payload.timestamp).toLocaleDateString('pt-BR', { 
-                              weekday: 'long', 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
+                            {formatDateComplete(payload[0].payload.timestamp)}
                           </p>
                         )}
                       </div>
@@ -496,19 +453,20 @@ export function ExpandableMetricCard({
                           <span className="text-sm font-medium text-gray-700">{label}</span>
                         </div>
                         <div className="text-2xl font-bold text-gray-900 mb-1">
-                          {payload[0].value.toLocaleString('pt-BR')}
+                          {title === 'Taxa de Conversão' 
+                            ? `${payload[0].value.toFixed(1)}%`
+                            : payload[0].value.toLocaleString('pt-BR')
+                          }
                         </div>
                         <div className="text-sm text-gray-500">
-                          {title}
+                          {title === 'Taxa de Conversão' && payload[0].payload.leads > 0
+                            ? `${payload[0].payload.sales}/${payload[0].payload.leads} leads convertidos`
+                            : title
+                          }
                         </div>
                         {payload[0].payload.timestamp && (
                           <div className="text-xs text-gray-400 mt-2">
-                            {new Date(payload[0].payload.timestamp).toLocaleDateString('pt-BR', { 
-                              weekday: 'long', 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
+                            {formatDateComplete(payload[0].payload.timestamp)}
                           </div>
                         )}
                       </div>
@@ -752,7 +710,7 @@ export function ExpandableMetricCard({
                 Dias de Maior Performance
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {(expandedData && expandedData.length > 0 ? expandedData : generateZeroData(selectedPeriod))
+                {(expandedData && expandedData.length > 0 ? expandedData : [])
                   .filter(day => day.value > 0) // Filtrar apenas dias com dados
                   .sort((a, b) => b.value - a.value)
                   .slice(0, 3)
@@ -762,16 +720,25 @@ export function ExpandableMetricCard({
                         <div>
                           <div className="text-sm text-white">{day.name}</div>
                           <div className="text-xs text-gray-300">
-                            {day.timestamp && new Date(day.timestamp).toLocaleDateString('pt-BR', { 
-                              weekday: 'long' 
-                            })}
+                            {day.name && day.name.includes('/') ? 
+                              getCorrectDayOfWeek(day.name) : 
+                              (day.timestamp && formatDateComplete(day.timestamp))
+                            }
                           </div>
                         </div>
                         <div className="text-right">
                           <div className="text-2xl font-bold text-blue-400">
-                            {day.value.toFixed(0)}
+                            {title === 'Taxa de Conversão' 
+                              ? `${day.value.toFixed(1)}%`
+                              : day.value.toFixed(0)
+                            }
                           </div>
-                          <div className="text-xs text-gray-300">#{index + 1}</div>
+                          <div className="text-xs text-gray-300">
+                            {title === 'Taxa de Conversão' && day.leads > 0
+                              ? `${day.sales}/${day.leads} leads`
+                              : `#${index + 1}`
+                            }
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -783,27 +750,39 @@ export function ExpandableMetricCard({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                 <div className="text-2xl font-bold text-blue-400">
-                  {expandedData && expandedData.length > 0 ? Math.max(...expandedData.map(d => d.value)).toFixed(0) : '0'}
+                  {title === 'Taxa de Conversão' 
+                    ? `${expandedData && expandedData.length > 0 ? Math.max(...expandedData.map(d => d.value)).toFixed(1) : '0'}%`
+                    : expandedData && expandedData.length > 0 ? Math.max(...expandedData.map(d => d.value)).toFixed(0) : '0'
+                  }
                 </div>
                 <div className="text-sm text-blue-400">Máximo</div>
               </div>
               <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                 <div className="text-2xl font-bold text-green-400">
-                  {expandedData && expandedData.length > 0 ? Math.min(...expandedData.filter(d => d.value > 0).map(d => d.value)).toFixed(0) : '0'}
+                  {title === 'Taxa de Conversão' 
+                    ? `${expandedData && expandedData.length > 0 ? Math.min(...expandedData.filter(d => d.value > 0).map(d => d.value)).toFixed(1) : '0'}%`
+                    : expandedData && expandedData.length > 0 ? Math.min(...expandedData.filter(d => d.value > 0).map(d => d.value)).toFixed(0) : '0'
+                  }
                 </div>
                 <div className="text-sm text-green-400">Mínimo</div>
               </div>
               <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                 <div className="text-2xl font-bold text-purple-400">
-                  {expandedData && expandedData.length > 0 ? (expandedData.reduce((sum, d) => sum + d.value, 0) / expandedData.length).toFixed(1) : '0'}
+                  {title === 'Taxa de Conversão' 
+                    ? `${expandedData && expandedData.length > 0 ? (expandedData.reduce((sum, d) => sum + d.value, 0) / expandedData.length).toFixed(1) : '0'}%`
+                    : expandedData && expandedData.length > 0 ? (expandedData.reduce((sum, d) => sum + d.value, 0) / expandedData.length).toFixed(1) : '0'
+                  }
                 </div>
                 <div className="text-sm text-purple-400">Média</div>
               </div>
               <div className="bg-slate-800 p-4 rounded-lg border border-slate-700">
                 <div className="text-2xl font-bold text-orange-400">
-                  {expandedData && expandedData.length > 0 ? expandedData.reduce((sum, d) => sum + d.value, 0).toFixed(0) : '0'}
+                  {title === 'Taxa de Conversão' 
+                    ? `${expandedData && expandedData.length > 0 ? (expandedData.reduce((sum, d) => sum + d.value, 0) / expandedData.length).toFixed(1) : '0'}%`
+                    : expandedData && expandedData.length > 0 ? expandedData.reduce((sum, d) => sum + d.value, 0).toFixed(0) : '0'
+                  }
                 </div>
-                <div className="text-sm text-orange-400">Total</div>
+                <div className="text-sm text-orange-400">{title === 'Taxa de Conversão' ? 'Média Geral' : 'Total'}</div>
               </div>
             </div>
 

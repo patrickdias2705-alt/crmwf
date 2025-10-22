@@ -15,7 +15,7 @@ interface CreateLeadDialogProps {
 }
 
 export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -31,6 +31,13 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Verificar se é supervisor - supervisores não podem cadastrar leads
+    if (hasRole(['supervisor'])) {
+      toast.error('Supervisores não podem cadastrar leads. Apenas visualização permitida.');
+      return;
+    }
+    
     if (!user?.tenant_id) {
       toast.error('Erro: usuário não autenticado');
       return;
@@ -120,7 +127,21 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <>
+      <style>
+        {`
+          .dialog-title-force-white {
+            color: white !important;
+          }
+          .dialog-description-force-white {
+            color: rgba(255, 255, 255, 0.8) !important;
+          }
+          .classification-text-force-white {
+            color: rgba(255, 255, 255, 0.8) !important;
+          }
+        `}
+      </style>
+      <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
@@ -129,8 +150,8 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Criar Novo Lead</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-white dark:text-white dialog-title-force-white">Criar Novo Lead</DialogTitle>
+          <DialogDescription className="text-white/80 dark:text-white/80 dialog-description-force-white">
             Preencha os dados para adicionar um novo lead ao sistema
           </DialogDescription>
         </DialogHeader>
@@ -149,94 +170,98 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
           <form onSubmit={handleSubmit}>
             <TabsContent value="dados" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome *</Label>
+                <Label htmlFor="name" className="text-white dark:text-white font-medium">Nome *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Nome do lead"
+                  className="text-foreground bg-background border-border"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phone">Telefone *</Label>
+                <Label htmlFor="phone" className="text-white dark:text-white font-medium">Telefone *</Label>
                 <Input
                   id="phone"
                   value={formData.phone}
                   onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                   placeholder="+55 11 99999-9999"
+                  className="text-foreground bg-background border-border"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-white dark:text-white font-medium">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="email@exemplo.com"
+                  className="text-foreground bg-background border-border"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="order_number">Número do Pedido</Label>
+                <Label htmlFor="order_number" className="text-white dark:text-white font-medium">Número do Pedido</Label>
                 <Input
                   id="order_number"
                   value={formData.order_number}
                   onChange={(e) => setFormData(prev => ({ ...prev, order_number: e.target.value }))}
                   placeholder="Ex: PED-2024-001"
+                  className="text-foreground bg-background border-border"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="origin">Origem do Lead *</Label>
+                <Label htmlFor="origin" className="text-white dark:text-white font-medium">Origem do Lead *</Label>
                 <Select value={formData.origin} onValueChange={(value) => setFormData(prev => ({ ...prev, origin: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-foreground bg-background border-border">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="meta_ads">Meta Ads</SelectItem>
-                    <SelectItem value="instagram">Instagram (Direct)</SelectItem>
-                    <SelectItem value="facebook">Facebook (Messenger FB)</SelectItem>
-                    <SelectItem value="site">Site</SelectItem>
-                    <SelectItem value="loja">Loja</SelectItem>
-                    <SelectItem value="tiktok">TikTok</SelectItem>
-                    <SelectItem value="linkedin">LinkedIn</SelectItem>
-                    <SelectItem value="indicacao">Indicação</SelectItem>
-                    <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
+                  <SelectContent className="bg-background border-border">
+                    <SelectItem value="meta_ads" className="text-foreground">Meta Ads</SelectItem>
+                    <SelectItem value="instagram" className="text-foreground">Instagram (Direct)</SelectItem>
+                    <SelectItem value="facebook" className="text-foreground">Facebook (Messenger FB)</SelectItem>
+                    <SelectItem value="site" className="text-foreground">Site</SelectItem>
+                    <SelectItem value="loja" className="text-foreground">Loja</SelectItem>
+                    <SelectItem value="tiktok" className="text-foreground">TikTok</SelectItem>
+                    <SelectItem value="linkedin" className="text-foreground">LinkedIn</SelectItem>
+                    <SelectItem value="indicacao" className="text-foreground">Indicação</SelectItem>
+                    <SelectItem value="cliente_carteirizado" className="text-foreground">Cliente Carteirizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="segment">Segmento *</Label>
+                <Label htmlFor="segment" className="text-white dark:text-white font-medium">Segmento *</Label>
                 <Select value={formData.segment} onValueChange={(value) => setFormData(prev => ({ ...prev, segment: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-foreground bg-background border-border">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="varejo">Varejo</SelectItem>
-                    <SelectItem value="distribuidor">Distribuidor</SelectItem>
-                    <SelectItem value="revenda">Revenda</SelectItem>
-                    <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
+                  <SelectContent className="bg-background border-border">
+                    <SelectItem value="varejo" className="text-foreground">Varejo</SelectItem>
+                    <SelectItem value="distribuidor" className="text-foreground">Distribuidor</SelectItem>
+                    <SelectItem value="revenda" className="text-foreground">Revenda</SelectItem>
+                    <SelectItem value="cliente_carteirizado" className="text-foreground">Cliente Carteirizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Categoria *</Label>
+                <Label htmlFor="category" className="text-white dark:text-white font-medium">Categoria *</Label>
                 <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="text-foreground bg-background border-border">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="varejo">Varejo</SelectItem>
-                    <SelectItem value="distribuidor">Distribuidor</SelectItem>
-                    <SelectItem value="revenda">Revenda</SelectItem>
-                    <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
+                  <SelectContent className="bg-background border-border">
+                    <SelectItem value="varejo" className="text-foreground">Varejo</SelectItem>
+                    <SelectItem value="distribuidor" className="text-foreground">Distribuidor</SelectItem>
+                    <SelectItem value="revenda" className="text-foreground">Revenda</SelectItem>
+                    <SelectItem value="cliente_carteirizado" className="text-foreground">Cliente Carteirizado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -245,8 +270,8 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
             <TabsContent value="classificacao" className="space-y-4 mt-4">
               <div className="space-y-4">
                 <div className="text-center p-6 bg-muted/50 rounded-lg">
-                  <h3 className="font-semibold mb-2">Classificação do Lead</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-semibold mb-2 text-foreground">Classificação do Lead</h3>
+                  <p className="text-sm text-foreground/80">
                     Selecione a classificação mais adequada para este lead
                   </p>
                 </div>
@@ -262,10 +287,10 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                       onChange={(e) => setFormData(prev => ({ ...prev, classification: e.target.value }))}
                       className="h-4 w-4 text-primary"
                     />
-                    <Label htmlFor="curva_a" className="flex items-center gap-2">
+                    <Label htmlFor="curva_a" className="flex items-center gap-2 text-white dark:text-white">
                       <span className="w-3 h-3 bg-green-500 rounded-full"></span>
                       <strong>Curva A</strong>
-                      <span className="text-sm text-muted-foreground">- Lead de alta qualidade</span>
+                      <span className="text-sm text-white/80 classification-text-force-white">- Lead de alta qualidade</span>
                     </Label>
                   </div>
 
@@ -279,10 +304,10 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                       onChange={(e) => setFormData(prev => ({ ...prev, classification: e.target.value }))}
                       className="h-4 w-4 text-primary"
                     />
-                    <Label htmlFor="lead_desqualificado" className="flex items-center gap-2">
+                    <Label htmlFor="lead_desqualificado" className="flex items-center gap-2 text-white dark:text-white">
                       <span className="w-3 h-3 bg-red-500 rounded-full"></span>
                       <strong>Lead Desqualificado</strong>
-                      <span className="text-sm text-muted-foreground">- Não atende aos critérios</span>
+                      <span className="text-sm text-white/80 classification-text-force-white">- Não atende aos critérios</span>
                     </Label>
                   </div>
 
@@ -296,10 +321,10 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                       onChange={(e) => setFormData(prev => ({ ...prev, classification: e.target.value }))}
                       className="h-4 w-4 text-primary"
                     />
-                    <Label htmlFor="lead_sem_resposta" className="flex items-center gap-2">
+                    <Label htmlFor="lead_sem_resposta" className="flex items-center gap-2 text-white dark:text-white">
                       <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
                       <strong>Lead sem Resposta</strong>
-                      <span className="text-sm text-muted-foreground">- Não respondeu aos contatos</span>
+                      <span className="text-sm text-white/80 classification-text-force-white">- Não respondeu aos contatos</span>
                     </Label>
                   </div>
 
@@ -313,10 +338,10 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                       onChange={(e) => setFormData(prev => ({ ...prev, classification: e.target.value }))}
                       className="h-4 w-4 text-primary"
                     />
-                    <Label htmlFor="lead_sem_sucesso" className="flex items-center gap-2">
+                    <Label htmlFor="lead_sem_sucesso" className="flex items-center gap-2 text-white dark:text-white">
                       <span className="w-3 h-3 bg-orange-500 rounded-full"></span>
                       <strong>Lead sem Sucesso</strong>
-                      <span className="text-sm text-muted-foreground">- Tentativas não resultaram em venda</span>
+                      <span className="text-sm text-white/80 classification-text-force-white">- Tentativas não resultaram em venda</span>
                     </Label>
                   </div>
 
@@ -330,10 +355,10 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                       onChange={(e) => setFormData(prev => ({ ...prev, classification: e.target.value }))}
                       className="h-4 w-4 text-primary"
                     />
-                    <Label htmlFor="sem_estoque_produto" className="flex items-center gap-2">
+                    <Label htmlFor="sem_estoque_produto" className="flex items-center gap-2 text-white dark:text-white">
                       <span className="w-3 h-3 bg-purple-500 rounded-full"></span>
                       <strong>Sem Estoque do Produto</strong>
-                      <span className="text-sm text-muted-foreground">- Produto solicitado indisponível</span>
+                      <span className="text-sm text-white/80 classification-text-force-white">- Produto solicitado indisponível</span>
                     </Label>
                   </div>
                 </div>
@@ -352,5 +377,6 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
         </Tabs>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

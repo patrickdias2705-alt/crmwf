@@ -1,13 +1,25 @@
-// Script para forçar refresh e limpar cache
-console.log('🔄 Forçando refresh e limpeza de cache...');
+// Script para forçar atualização do cache
+console.log('🔄 Forçando atualização do cache...');
 
-// Limpar localStorage
-localStorage.clear();
+// Adicionar timestamp para quebrar cache
+const timestamp = Date.now();
+const links = document.querySelectorAll('link[rel="stylesheet"]');
+const scripts = document.querySelectorAll('script[src]');
 
-// Limpar sessionStorage
-sessionStorage.clear();
+links.forEach(link => {
+  if (link.href) {
+    const url = new URL(link.href);
+    url.searchParams.set('v', timestamp);
+    link.href = url.toString();
+  }
+});
 
-// Recarregar a página
-window.location.reload(true);
+scripts.forEach(script => {
+  if (script.src) {
+    const url = new URL(script.src);
+    url.searchParams.set('v', timestamp);
+    script.src = url.toString();
+  }
+});
 
-console.log('✅ Cache limpo e página recarregada!');
+console.log('✅ Cache atualizado!');

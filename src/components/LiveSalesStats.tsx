@@ -51,7 +51,7 @@ export function LiveSalesStats() {
         const { data: todayMetrics, error: todayError } = await supabase
           .from('daily_sales_metrics')
           .select('total_sales, total_leads, closed_leads, avg_ticket')
-          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+          .eq('tenant_id', user?.tenant_id)
           .eq('date', new Date().toISOString().split('T')[0])
           .single();
 
@@ -59,13 +59,13 @@ export function LiveSalesStats() {
         const { data: allSales, error: allSalesError } = await supabase
           .from('sales')
           .select('amount')
-          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+          .eq('tenant_id', user?.tenant_id);
 
         // Buscar métricas dos últimos 5 dias
         const { data: last5DaysData, error: last5DaysError } = await supabase
           .from('daily_sales_metrics')
           .select('date, total_sales, closed_leads, avg_ticket')
-          .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c')
+          .eq('tenant_id', user?.tenant_id)
           .gte('date', new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
           .order('date', { ascending: false });
 
@@ -105,7 +105,7 @@ export function LiveSalesStats() {
           const { data: salesTableData, error: salesError } = await supabase
             .from('sales')
             .select('amount, sold_at')
-            .eq('tenant_id', '8bd69047-7533-42f3-a2f7-e3a60477f68c');
+            .eq('tenant_id', user?.tenant_id);
 
           if (salesError) throw salesError;
           
@@ -212,7 +212,7 @@ export function LiveSalesStats() {
           event: '*',
           schema: 'public',
           table: 'sales',
-          filter: `tenant_id=eq.8bd69047-7533-42f3-a2f7-e3a60477f68c`
+          filter: `tenant_id=eq.${user?.tenant_id}`
         },
         () => {
           console.log('🔄 Venda detectada, atualizando estatísticas...');
