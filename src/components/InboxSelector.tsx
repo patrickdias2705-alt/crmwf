@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, ChevronRight, Loader2, Shield, User, ArrowLeft, Home } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { getEdgeFunctionUrl } from "@/utils/api";
 
 type Inbox = {
   id: number;
@@ -35,7 +36,7 @@ export function InboxSelector({ onSelect }: InboxSelectorProps) {
       setError(null);
 
       // Buscar inboxes do Chatwoot
-      const response = await fetch('/functions/v1/chatwoot-conversations?list_inboxes=true', {
+      const response = await fetch(getEdgeFunctionUrl('chatwoot-conversations?list_inboxes=true'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',

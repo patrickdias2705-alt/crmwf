@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare, Phone, Mail, Clock, CheckCircle, XCircle, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
+import { getEdgeFunctionUrl } from "@/utils/api";
 
 type Contact = {
   id: number;
@@ -57,7 +58,7 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
       setError(null);
 
       // Usar a Edge Function do Supabase como proxy
-      const fullUrl = `/functions/v1/chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}` : ''}`;
+      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}` : ''}`);
 
       const response = await fetch(fullUrl, {
         headers: {
@@ -151,7 +152,7 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
   // Função para recarregar conversas sem mostrar loading
   const fetchConversationsSilently = async () => {
     try {
-      const fullUrl = `/functions/v1/chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}` : ''}`;
+      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}` : ''}`);
 
       const response = await fetch(fullUrl, {
         headers: {
@@ -175,7 +176,7 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
 
   const loadMessagesForConversation = async (conversationId: number, silent = false) => {
     try {
-      const fullUrl = `/functions/v1/chatwoot-conversations?conversation_id=${conversationId}`;
+      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations?conversation_id=${conversationId}`);
 
       const response = await fetch(fullUrl, {
         headers: {
@@ -385,7 +386,7 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
 
     try {
       // Enviar mensagem para o Chatwoot
-      const response = await fetch('/functions/v1/chatwoot-conversations', {
+      const response = await fetch(getEdgeFunctionUrl('chatwoot-conversations'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -565,7 +566,7 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                       // Reabrir conversa se estiver resolvida
                       try {
                         const response = await fetch(
-                          `/functions/v1/chatwoot-conversations?conversation_id=${selectedConversation.id}`,
+                          getEdgeFunctionUrl(`chatwoot-conversations?conversation_id=${selectedConversation.id}`),
                           {
                             method: 'PUT',
                             headers: {
