@@ -504,17 +504,20 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
     if (!selectedConversation) return;
 
     try {
-      // Chamar API do Chatwoot para aplicar tag
+      // Chamar via Edge Function para evitar CORS
       const response = await fetch(
-        `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/1/conversations/${selectedConversation.id}/labels`,
+        getEdgeFunctionUrl(`chatwoot-conversations`),
         {
           method: 'POST',
           headers: {
-            'api_access_token': 'HUYUHnVUAunUeAWpcUS8VWeK',
             'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
           },
           body: JSON.stringify({
-            labels: [tag.title]
+            conversation_id: selectedConversation.id,
+            action: 'apply_tag',
+            tag_id: tag.id,
+            tag_title: tag.title
           }),
         }
       );

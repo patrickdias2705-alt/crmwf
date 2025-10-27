@@ -43,10 +43,65 @@ serve(async (req: Request): Promise<Response> => {
     const url = new URL(req.url)
     const accountId = url.searchParams.get('account_id') || '1'
 
-    // POST request - send message
+    // POST request - send message or apply tag
     if (req.method === 'POST') {
       const body = await req.json()
       const conversationId = body.conversation_id
+      const action = body.action
+
+      // Aplicar tag
+      if (action === 'apply_tag') {
+        const tagTitle = body.tag_title
+        
+        if (!conversationId || !tagTitle) {
+          return new Response(
+            JSON.stringify({ error: 'Missing conversation_id or tag_title' }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400,
+            }
+          )
+        }
+
+        const labelsUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}/labels`
+        
+        console.log('🏷️ Applying tag:', tagTitle, 'to conversation:', conversationId)
+        
+        const labelsRes = await fetch(labelsUrl, {
+          method: 'POST',
+          headers: {
+            'api_access_token': token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            labels: [tagTitle]
+          }),
+        })
+
+        if (!labelsRes.ok) {
+          console.error('Chatwoot API error:', labelsRes.status, labelsRes.statusText)
+          return new Response(
+            JSON.stringify({ 
+              error: `Chatwoot API error: ${labelsRes.status} ${labelsRes.statusText}` 
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: labelsRes.status,
+            }
+          )
+        }
+
+        const labelsData = await labelsRes.json()
+        return new Response(
+          JSON.stringify(labelsData),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        )
+      }
+
+      // Enviar mensagem
       const content = body.content
       const messageType = body.message_type || 'outgoing'
 
