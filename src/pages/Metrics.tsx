@@ -384,6 +384,15 @@ export default function Metrics() {
   const { user, loading: authLoading } = useAuth();
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
+  
+  // Log inicial do usuário
+  console.log('🔍 [INÍCIO] User data:', {
+    email: user?.email,
+    name: user?.name,
+    tenant_id: user?.tenant_id,
+    role: user?.role,
+    userObject: user
+  });
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('7d');
   const [metrics, setMetrics] = useState<MetricCard[]>([]);
