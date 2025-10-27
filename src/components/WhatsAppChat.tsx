@@ -467,10 +467,30 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
       }
 
       const result = await response.json();
-      const tagsList = result?.payload || [];
+      
+      console.log('🔍 Resultado completo da API de tags:', result);
+      console.log('📋 Estrutura:', {
+        hasPayload: !!result.payload,
+        hasData: !!result.data,
+        payloadType: typeof result.payload,
+        payloadLength: Array.isArray(result.payload) ? result.payload.length : 'not array',
+        keys: Object.keys(result)
+      });
+      
+      // Tentar diferentes estruturas de resposta
+      const tagsList = result?.payload || result?.data?.payload || result?.data || [];
+      
+      console.log('🏷️ Tags encontradas:', tagsList.length);
+      if (tagsList.length > 0) {
+        console.log('📝 Primeira tag:', tagsList[0]);
+      }
       
       setTags(tagsList);
       setShowTagsModal(true);
+      
+      if (tagsList.length === 0) {
+        toast.warning('Nenhuma etiqueta encontrada no Chatwoot');
+      }
     } catch (err: any) {
       console.error('Error fetching tags:', err);
       toast.error('Erro ao carregar tags');
