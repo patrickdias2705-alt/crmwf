@@ -440,106 +440,51 @@ export default function Metrics() {
 
   // Atualização em tempo real
   useEffect(() => {
-    // Sempre ativar real-time usando o tenant_id do usuário logado
+    if (!user?.tenant_id) return;
 
-    const channel = supabase
-      .channel('metrics-realtime')
+    console.log('🔔 [TEMPO REAL] Iniciando escuta para tenant:', user.tenant_id);
+
+    // Canal 1: Vendas
+    const salesChannel = supabase
+      .channel('metrics-realtime-sales')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'sales' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'sales',
+          filter: `tenant_id=eq.${user.tenant_id}`
+        },
         (payload) => {
-          console.log('🔄 Venda detectada! Atualizando métricas...', payload);
+          console.log('🔄 [TEMPO REAL] Venda detectada!', payload.new);
           fetchMetrics(); // Recarrega métricas quando uma venda é feita
         }
       )
+      .subscribe();
+
+    // Canal 2: Leads
+    const leadsChannel = supabase
+      .channel('metrics-realtime-leads')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'leads' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'leads',
+          filter: `tenant_id=eq.${user.tenant_id}`
+        },
         (payload) => {
-          console.log('🔄 Lead detectado! Atualizando métricas...', payload);
+          console.log('🔄 [TEMPO REAL] Lead detectado!', payload.new);
           fetchMetrics(); // Recarrega métricas quando um lead muda
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []); // Sempre ativo
-
-  useEffect(() => {
-    // Sempre ativar real-time usando o tenant_id do usuário logado
-
-    // Subscribe to realtime changes for leads, stages, budgets
-    const leadsChannel = supabase
-      .channel('metrics-leads-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leads'
-        },
-        () => {
-          console.log('Lead changed, updating metrics');
-          fetchMetrics();
-        }
-      )
-      .subscribe();
-
-    const stagesChannel = supabase
-      .channel('metrics-stages-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'stages'
-        },
-        () => {
-          console.log('Stage changed, updating metrics');
-          fetchMetrics();
-        }
-      )
-      .subscribe();
-
-    const metricsChannel = supabase
-      .channel('metrics-daily-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'metrics_daily'
-        },
-        () => {
-          console.log('Metrics changed, refreshing');
-          fetchMetrics();
-        }
-      )
-      .subscribe();
-
-    const budgetsChannel = supabase
-      .channel('metrics-budgets-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'budgets'
-        },
-        () => {
-          console.log('Budget changed, updating metrics');
-          fetchMetrics();
-        }
-      )
-      .subscribe();
-
-    return () => {
+      supabase.removeChannel(salesChannel);
       supabase.removeChannel(leadsChannel);
-      supabase.removeChannel(stagesChannel);
-      supabase.removeChannel(metricsChannel);
-      supabase.removeChannel(budgetsChannel);
     };
-  }, []); // Sempre ativo
+  }, [user?.tenant_id]); // Re-criar quando o tenant_id mudar
+
+
 
 
   const fetchMetrics = async () => {
