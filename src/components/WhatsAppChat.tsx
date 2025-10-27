@@ -562,6 +562,53 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
     }
   };
 
+  const removeTag = async (tagTitle: string) => {
+    if (!selectedConversation) return;
+
+    try {
+      const response = await fetch(
+        getEdgeFunctionUrl(`chatwoot-conversations`),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
+          },
+          body: JSON.stringify({
+            conversation_id: selectedConversation.id,
+            action: 'remove_tag',
+            tag_title: tagTitle
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Atualizar localmente
+      setSelectedConversation(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          labels: (prev.labels || []).filter(l => l.title !== tagTitle)
+        };
+      });
+
+      // Também atualizar na lista de conversas
+      setConversations(prev => prev.map(convo => 
+        convo.id === selectedConversation.id
+          ? { ...convo, labels: (convo.labels || []).filter(l => l.title !== tagTitle) }
+          : convo
+      ));
+
+      toast.success(`Tag "${tagTitle}" removida!`);
+    } catch (err: any) {
+      console.error('❌ Error removing tag:', err);
+      toast.error(`Erro ao remover tag: ${err.message}`);
+    }
+  };
+
   const sendMessage = async () => {
     if (!message.trim() || !selectedConversation) {
       toast.error('Digite uma mensagem');
@@ -749,10 +796,15 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                             {convo.labels.map((label) => (
                               <span
                                 key={label.id}
-                                className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                                className="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 group hover:opacity-80 cursor-pointer"
                                 style={{ backgroundColor: label.color || '#005c4b', color: 'white' }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeTag(label.title);
+                                }}
                               >
                                 {label.title}
+                                <X className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                               </span>
                             ))}
                           </div>
@@ -822,10 +874,15 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                         {selectedConversation.labels.map((label) => (
                           <span
                             key={label.id}
-                            className="px-2 py-0.5 rounded text-[10px] font-semibold"
+                            className="px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 group hover:opacity-80 cursor-pointer"
                             style={{ backgroundColor: label.color || '#005c4b', color: 'white' }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeTag(label.title);
+                            }}
                           >
                             {label.title}
+                            <X className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </span>
                         ))}
                       </div>

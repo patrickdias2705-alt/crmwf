@@ -101,6 +101,56 @@ serve(async (req: Request): Promise<Response> => {
         )
       }
 
+      // Remover tag
+      if (action === 'remove_tag') {
+        const tagTitle = body.tag_title
+        
+        if (!conversationId || !tagTitle) {
+          return new Response(
+            JSON.stringify({ error: 'Missing conversation_id or tag_title' }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 400,
+            }
+          )
+        }
+
+        const labelsUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}/labels`
+        
+        console.log('🗑️ Removing tag:', tagTitle, 'from conversation:', conversationId)
+        
+        // Para remover, usamos DELETE com o título da label
+        const labelsRes = await fetch(`${labelsUrl}/${encodeURIComponent(tagTitle)}`, {
+          method: 'DELETE',
+          headers: {
+            'api_access_token': token,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!labelsRes.ok) {
+          console.error('Chatwoot API error:', labelsRes.status, labelsRes.statusText)
+          return new Response(
+            JSON.stringify({ 
+              error: `Chatwoot API error: ${labelsRes.status} ${labelsRes.statusText}` 
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: labelsRes.status,
+            }
+          )
+        }
+
+        const labelsData = await labelsRes.json()
+        return new Response(
+          JSON.stringify(labelsData),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: 200,
+          }
+        )
+      }
+
       // Enviar mensagem
       const content = body.content
       const messageType = body.message_type || 'outgoing'
