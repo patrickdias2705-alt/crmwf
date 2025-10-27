@@ -518,22 +518,27 @@ export default function Metrics() {
       let avgTicket = 0;
       let salesCount = 0;
 
-      // CORREÇÃO: Buscar vendas de AMBAS as fontes (sales table + fields)
-      let salesFromTable = 0;
-      let salesFromFields = 0;
+            // CORREÇÃO DEFINITIVA: Usar PRIMEIRO a tabela sales, SENÃO usar o fallback do fields
+      // Isso evita contar vendas duas vezes
       
-      // 1. Buscar da tabela sales
+      let vendasEncontradasNaSales = false;
+      
+      // 1. Tentar buscar da tabela sales PRIMEIRO
       try {
         const { data: salesData } = await (supabase as any)
           .from('sales')
-          .select('amount, lead_id, created_at')
+          .select('amount')
           .eq('tenant_id', effectiveTenantId);
 
         if (salesData && salesData.length > 0) {
-          salesFromTable = salesData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
-          console.log('💰 [CORREÇÃO] VENDAS da tabela sales:', { 
-            quantidade: salesData.length,
-            total: salesFromTable,
+          vendasEncontradasNaSales = true;
+          totalSold = salesData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+          salesCount = salesData.length;
+          avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
+          
+          console.log('💰 [SOLUÇÃO DEFINITIVA] Usando tabela SALES:', { 
+            quantidade: salesCount,
+            total: totalSold,
             tenantId: effectiveTenantId
           });
         }
@@ -541,71 +546,36 @@ export default function Metrics() {
         console.log('Erro ao buscar tabela sales:', error);
       }
 
-      // 2. Buscar do fields dos leads (fallback para leads vendidos antigos)
-      try {
-        const { data: leadsData } = await (supabase as any)
-          .from('leads')
-          .select('id, fields')
-          .eq('tenant_id', effectiveTenantId)
-          .not('fields->sold', 'is', null);
-
-        if (leadsData && leadsData.length > 0) {
-          // Filtrar apenas os que têm sold_amount
-          const soldLeads = leadsData.filter((lead: any) => 
-            lead.fields?.sold === true || lead.fields?.sold === 'true'
-          );
-          
-          salesFromFields = soldLeads.reduce((sum: number, lead: any) => 
-            sum + (Number(lead.fields?.sold_amount) || 0), 0
-          );
-          
-          console.log('💰 [CORREÇÃO] VENDAS do fields:', { 
-            quantidade: soldLeads.length,
-            total: salesFromFields,
-            tenantId: effectiveTenantId
-          });
-        }
-      } catch (error) {
-        console.error('Erro ao buscar vendas do fields:', error);
-      }
-
-             // 3. SOMAR ambos os totais e contar vendas
-      totalSold = salesFromTable + salesFromFields;
-      
-      // Contar quantidade de vendas baseado na tabela sales
-      try {
-        const { count: countTable } = await (supabase as any)
-          .from('sales')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', effectiveTenantId);
-        salesCount = countTable || 0;
-      } catch {
-        // Se falhar, tentar contar do fields
+      // 2. Se NÃO encontrou na tabela sales, usar o fallback do fields
+      if (!vendasEncontradasNaSales) {
         try {
           const { data: leadsData } = await (supabase as any)
             .from('leads')
             .select('fields')
             .eq('tenant_id', effectiveTenantId)
             .not('fields->sold', 'is', null);
-          const sold = leadsData?.filter((lead: any) => 
-            lead.fields?.sold === true || lead.fields?.sold === 'true'
-          ) || [];
-          salesCount = sold.length;
-        } catch {
-          salesCount = 0;
+
+          if (leadsData && leadsData.length > 0) {
+            const soldLeads = leadsData.filter((lead: any) => 
+              lead.fields?.sold === true || lead.fields?.sold === 'true'
+            );
+            
+            totalSold = soldLeads.reduce((sum: number, lead: any) => 
+              sum + (Number(lead.fields?.sold_amount) || 0), 0
+            );
+            salesCount = soldLeads.length;
+            avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
+            
+            console.log('💰 [SOLUÇÃO DEFINITIVA] Usando FALLBACK (fields):', { 
+              quantidade: salesCount,
+              total: totalSold,
+              tenantId: effectiveTenantId
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao buscar vendas do fields:', error);
         }
       }
-      
-      avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
-      
-      console.log('💰 [CORREÇÃO FINAL] Total de vendas:', { 
-        daTabelaSales: salesFromTable,
-        doFields: salesFromFields,
-        TOTAL: totalSold,
-        quantidadeVendas: salesCount,
-        ticketMedio: avgTicket,
-        tenantId: effectiveTenantId
-      });
 
       // NÃO buscar fallback de leads com orçamento!
       // Vendas SÓ contam quando marcadas explicitamente via botão "Marcar como Vendido"
