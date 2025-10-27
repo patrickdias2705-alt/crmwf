@@ -166,16 +166,17 @@ serve(async (req: Request): Promise<Response> => {
           )
         }
 
-        // Remover a label usando o ID (POST com title para remover, não DELETE)
-        const labelsRes = await fetch(labelsUrl, {
-          method: 'POST',
+        // Remover a label usando DELETE no endpoint correto
+        const deleteLabelsUrl = `${labelsUrl}/${labelId}`
+        
+        console.log('🗑️ Deleting label with URL:', deleteLabelsUrl, 'and ID:', labelId)
+        
+        const labelsRes = await fetch(deleteLabelsUrl, {
+          method: 'DELETE',
           headers: {
             'api_access_token': token,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            labels: [tagTitle],
-          }),
         })
 
         if (!labelsRes.ok) {
