@@ -35,7 +35,7 @@ interface Lead {
 }
 
 export default function Pipelines() {
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, forceUpdate } = useAuth();
   const { viewingAgentId, isViewingAgent } = useTenantView();
   const [stages, setStages] = useState<Stage[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -45,9 +45,10 @@ export default function Pipelines() {
 
   useEffect(() => {
     if (user?.tenant_id) {
+      console.log('📊 Pipelines - Recarregando dados, forceUpdate:', forceUpdate);
       loadData();
     }
-  }, [user?.tenant_id, viewingAgentId, isViewingAgent]);
+  }, [user?.tenant_id, viewingAgentId, isViewingAgent, forceUpdate]);
 
   useEffect(() => {
     if (!user?.tenant_id) return;

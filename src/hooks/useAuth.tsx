@@ -25,6 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error?: string }>;
   signOut: () => Promise<void>;
   hasRole: (roles: string[]) => boolean;
+  forceUpdate: number;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,6 +63,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [simulatedUser, setSimulatedUser] = useState<AuthUser | null>(null);
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   const loadUserData = async (session: Session) => {
     try {
@@ -155,6 +158,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Listen for account switch events
+  useEffect(() => {
+    const handleAccountSwitch = (event: CustomEvent) => {
+      console.log('🎯 Account switch event received:', event.detail);
+      const { user: newUser, targetEmail, targetName } = event.detail;
+      console.log('Account switch detected:', { targetEmail, targetName, newUser });
+      
+      // Simular dados do usuário para a conta de destino
+      const simulatedUserData: AuthUser = {
+        id: newUser.id,
+        email: targetEmail,
+        name: targetName === 'Porta Porta' ? 'Supervisor Porta Porta' : 'Recebimento FTO',
+        role: 'supervisor', // Supervisor da Elaine
+        tenant_id: targetEmail === 'supervisorportaporta@gmail.com' 
+          ? '550e8400-e29b-41d4-a716-446655440011' // Porta Porta tenant
+          : '8bd69047-7533-42f3-a2f7-e3a60477f68c', // Varejo tenant
+        active: true,
+      };
+
+      console.log('👤 Setting simulated user:', simulatedUserData);
+      setSimulatedUser(simulatedUserData);
+      
+      // Simular tenant
+      const simulatedTenant: Tenant = {
+        id: simulatedUserData.tenant_id,
+        name: targetName,
+        plan: 'premium'
+      };
+      
+      console.log('🏢 Setting simulated tenant:', simulatedTenant);
+      setTenant(simulatedTenant);
+      
+      // Forçar atualização para recarregar dados
+      console.log('🔄 Forçando atualização dos componentes...');
+      setForceUpdate(prev => prev + 1);
+    };
+
+    console.log('👂 Adding account switch listener');
+    window.addEventListener('accountSwitch', handleAccountSwitch as EventListener);
+
+    return () => {
+      console.log('👂 Removing account switch listener');
+      window.removeEventListener('accountSwitch', handleAccountSwitch as EventListener);
+    };
+  }, []);
+
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
@@ -230,14 +279,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return roles.includes(user.role);
   };
 
+  // Log para debug
+  console.log('🔍 Auth context state:', {
+    user: user?.email,
+    userTenantId: user?.tenant_id,
+    simulatedUser: simulatedUser?.email,
+    simulatedTenantId: simulatedUser?.tenant_id,
+    tenant: tenant?.name,
+    tenantId: tenant?.id,
+    usingSimulated: !!simulatedUser
+  });
+
   const value = {
-    user,
+    user: simulatedUser || user, // Usar usuário simulado se disponível
     tenant,
     session,
     loading,
     signIn,
     signOut,
     hasRole,
+    forceUpdate, // Adicionar para detectar mudanças
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

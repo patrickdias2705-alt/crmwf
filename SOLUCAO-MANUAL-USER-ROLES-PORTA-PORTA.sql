@@ -156,3 +156,9 @@ SELECT 'Tenant ID: 550e8400-e29b-41d4-a716-446655440011' as info;
 SELECT 'Usuários: Elaine (Agente) e Julio (Agente)' as usuarios;
 SELECT 'User Roles criados manualmente' as user_roles;
 
+
+
+
+
+
+

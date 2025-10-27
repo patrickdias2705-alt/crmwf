@@ -217,7 +217,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
           name: formData.name,
           phone: formData.phone || null,
           email: formData.email || null,
-          source: formData.source,
+          origin: formData.source,
           stage_id: formData.stage_id,
           order_number: formData.order_number || null,
           fields: fieldsData

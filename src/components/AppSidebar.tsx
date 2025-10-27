@@ -5,14 +5,13 @@ import {
   Database, 
   BarChart3, 
   Settings,
-  Phone,
   Target,
   Activity,
   Zap,
   Shield,
   Eye
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { Badge } from "@/components/ui/badge";
@@ -35,12 +34,11 @@ import {
     { title: "Leads", url: "/leads", icon: Users, hideForRoles: ['supervisor'] },
     { title: "Lista Geral", url: "/lista-geral", icon: Eye },
     { title: "Conversations", url: "/conversations", icon: MessageSquare },
-    { title: "Pipelines", url: "/pipelines", icon: Target, hideForRoles: ['supervisor'] },
+    { title: "Pipelines", url: "/pipelines", icon: Target },
     { title: "Metrics", url: "/metrics", icon: Activity },
   ];
 
 const settingsItems = [
-  { title: "WhatsApp", url: "/whatsapp", icon: Phone },
   { title: "Database", url: "/database", icon: Database },
   { title: "Settings", url: "/settings", icon: Settings },
   { title: "Admin", url: "/admin", icon: Shield },
@@ -51,12 +49,18 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { hasRole } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
   const unreadCount = useUnreadMessages();
   
   const isAdmin = hasRole(['admin']);
   const isSupervisor = hasRole(['admin', 'supervisor']);
+
+  // Função para abrir Chatwoot em nova página
+  const handleChatwootClick = () => {
+    navigate('/chatwoot');
+  };
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -158,6 +162,32 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+
+          {/* Chatwoot Button */}
+          <SidebarGroup className="mb-6">
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    onClick={handleChatwootClick}
+                    className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-blue-600/30 hover:border-blue-500/50"
+                  >
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
+                      <MessageSquare className="h-4 w-4 text-white" />
+                    </div>
+                    {!collapsed && (
+                      <div className="flex items-center gap-2 flex-1">
+                        <span className="font-medium text-blue-600 group-hover:text-blue-700">
+                          Chatwoot
+                        </span>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                      </div>
+                    )}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

@@ -75,7 +75,7 @@ const COLORS = [
 
 export default function Index() {
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
-  const { user, loading } = useAuth();
+  const { user, loading, forceUpdate } = useAuth();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
   const [dashboardData, setDashboardData] = useState<DashboardData>({
     leads_received: 0,
@@ -136,9 +136,9 @@ export default function Index() {
 
   useEffect(() => {
     // Sempre carregar dados usando o tenant_id do usuário logado
-    console.log('📊 Dashboard - Carregando dados para usuário:', user?.email);
+    console.log('📊 Dashboard - Carregando dados para usuário:', user?.email, 'forceUpdate:', forceUpdate);
     loadDashboardData();
-  }, [dateRange, selectedAgent, selectedSource, viewingAgentId, isViewingAgent]);
+  }, [dateRange, selectedAgent, selectedSource, viewingAgentId, isViewingAgent, forceUpdate]);
 
 
   const exportToExcel = async () => {

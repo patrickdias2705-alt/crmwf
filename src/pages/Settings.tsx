@@ -4,6 +4,8 @@ import { PipelineSettings } from '@/components/settings/PipelineSettings';
 import { CustomFieldsSettings } from '@/components/settings/CustomFieldsSettings';
 import { WebhookSettings } from '@/components/settings/WebhookSettings';
 import { EvolutionSettings } from '@/components/settings/EvolutionSettings';
+import { WhatsAppConnector } from '@/components/WhatsAppConnector';
+import { WhatsAppTest } from '@/components/WhatsAppTest';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -572,16 +574,7 @@ export default function Settings() {
                           <MessageSquare className="h-5 w-5" />
                           WhatsApp
                         </h3>
-                        {isAdmin ? (
-                          <EvolutionSettings />
-                        ) : (
-                          <div className="text-center py-8">
-                            <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                            <p className="text-muted-foreground">
-                              Apenas administradores podem configurar integrações
-                            </p>
-                          </div>
-                        )}
+                        <WhatsAppConnector />
                       </div>
 
                       <Separator />

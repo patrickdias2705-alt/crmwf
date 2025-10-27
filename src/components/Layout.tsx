@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TenantViewBanner } from "@/components/TenantViewBanner";
+import { TenantQuickSwitch } from "@/components/TenantQuickSwitch";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -76,6 +77,10 @@ export function Layout({ children }: LayoutProps) {
                     </div>
                   </div>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-2" />
+                <div className="px-4 py-2">
+                  <TenantQuickSwitch className="w-full" />
+                </div>
                 <DropdownMenuSeparator className="my-2" />
                 <DropdownMenuItem
                   onClick={signOut}

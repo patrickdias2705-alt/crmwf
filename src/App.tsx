@@ -18,7 +18,9 @@ import Leads from "./pages/Leads";
 import Conversations from "./pages/Conversations";
 import Pipelines from "./pages/Pipelines";
 import Metrics from "./pages/Metrics";
-import WhatsApp from "./pages/WhatsApp";
+// import WhatsApp from "./pages/WhatsApp";
+import WhatsAppTest from "./pages/WhatsAppTest";
+import ChatwootChat from "./pages/ChatwootChat";
 import Journey from "./pages/Journey";
 import Inbox from "./pages/Inbox";
 import Settings from "./pages/Settings";
@@ -144,11 +146,27 @@ const App = () => {
                   </ProtectedRoute>
                 } 
               />
-            <Route 
+            {/* <Route 
               path="/whatsapp" 
               element={
                 <ProtectedRoute>
                   <WhatsApp />
+                </ProtectedRoute>
+              } 
+            /> */}
+            <Route 
+              path="/whatsapp-test" 
+              element={
+                <ProtectedRoute>
+                  <WhatsAppTest />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/chatwoot" 
+              element={
+                <ProtectedRoute>
+                  <ChatwootChat />
                 </ProtectedRoute>
               } 
             />

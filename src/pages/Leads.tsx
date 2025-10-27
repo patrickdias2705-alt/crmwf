@@ -42,7 +42,7 @@ interface Lead {
 }
 
 export default function Leads() {
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, forceUpdate } = useAuth();
   const { viewingAgentId, isViewingAgent } = useTenantView();
   const navigate = useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -62,9 +62,10 @@ export default function Leads() {
 
   useEffect(() => {
     if (user?.tenant_id) {
+      console.log('📊 Leads - Recarregando dados, forceUpdate:', forceUpdate);
       fetchLeads();
     }
-  }, [user?.tenant_id, viewingAgentId, isViewingAgent, currentPage]);
+  }, [user?.tenant_id, viewingAgentId, isViewingAgent, currentPage, forceUpdate]);
 
   const fetchLeads = async () => {
     try {
