@@ -134,49 +134,29 @@ serve(async (req: Request): Promise<Response> => {
         }
 
         const conversationData = await conversationRes.json()
-        console.log('📋 Conversation data:', JSON.stringify(conversationData.payload || conversationData).substring(0, 500))
+        const conversation = conversationData.payload || conversationData
+        console.log('📋 Conversation labels:', conversation.labels)
         
-        // Buscar labels da conversa (meta.labels são só strings, precisamos buscar os objetos completos)
-        const allLabelsUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/labels`
-        const allLabelsRes = await fetch(allLabelsUrl, {
+        // Obter as etiquetas atuais da conversa
+        const currentLabels = conversation.labels || []
+        
+        // Filtrar para remover a etiqueta que queremos excluir
+        const filteredLabels = currentLabels.filter((label: string) => label !== tagTitle)
+        
+        console.log('🗑️ Removing label:', tagTitle)
+        console.log('📋 Current labels:', currentLabels)
+        console.log('✅ New labels:', filteredLabels)
+        
+        // Atualizar as etiquetas na conversa
+        const labelsRes = await fetch(labelsUrl, {
+          method: 'POST',
           headers: {
             'api_access_token': token,
             'Content-Type': 'application/json',
           },
-        })
-
-        if (!allLabelsRes.ok) {
-          throw new Error('Failed to fetch labels')
-        }
-
-        const allLabelsData = await allLabelsRes.json()
-        console.log('🏷️ Available labels:', JSON.stringify(allLabelsData.payload || []).substring(0, 500))
-        
-        // Encontrar o ID da label pelo título
-        const labelObject = (allLabelsData.payload || []).find((l: any) => l.title === tagTitle)
-        const labelId = labelObject?.id
-
-        if (!labelId) {
-          return new Response(
-            JSON.stringify({ error: 'Label not found' }),
-            {
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              status: 404,
-            }
-          )
-        }
-
-        // Remover a label usando DELETE no endpoint correto
-        const deleteLabelsUrl = `${labelsUrl}/${labelId}`
-        
-        console.log('🗑️ Deleting label with URL:', deleteLabelsUrl, 'and ID:', labelId)
-        
-        const labelsRes = await fetch(deleteLabelsUrl, {
-          method: 'DELETE',
-          headers: {
-            'api_access_token': token,
-            'Content-Type': 'application/json',
-          },
+          body: JSON.stringify({
+            labels: filteredLabels,
+          }),
         })
 
         if (!labelsRes.ok) {
