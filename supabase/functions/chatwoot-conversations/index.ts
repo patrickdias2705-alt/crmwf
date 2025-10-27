@@ -186,10 +186,12 @@ serve(async (req: Request): Promise<Response> => {
 
       const tagsData = await tagsRes.json()
       console.log('✅ Tags loaded:', tagsData.payload?.length || 0)
+      console.log('📋 Estrutura da resposta:', JSON.stringify(tagsData).substring(0, 200))
       
-      // Retornar com estrutura data.payload para consistência com outras respostas
+      // IMPORTANTE: tagsData já vem no formato { payload: [...] }
+      // Retornar EXATAMENTE como está para o frontend processar
       return new Response(
-        JSON.stringify({ data: { payload: tagsData.payload || [] } }),
+        JSON.stringify(tagsData),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,

@@ -479,17 +479,17 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
         keys: Object.keys(result)
       });
       
-      // EXTRAIR TAGS: tentar TODAS as estruturas possíveis
+      // EXTRAIR TAGS: Chatwoot retorna diretamente { payload: [...] }
       let tagsList = [];
       
+      // A API retorna: { payload: [...] }
       if (result?.payload && Array.isArray(result.payload)) {
         tagsList = result.payload;
-      } else if (result?.data?.payload && Array.isArray(result.data.payload)) {
-        tagsList = result.data.payload;
+      } else if (Array.isArray(result)) {
+        // Se vier direto como array
+        tagsList = result;
       } else if (result?.data && Array.isArray(result.data)) {
         tagsList = result.data;
-      } else if (Array.isArray(result)) {
-        tagsList = result;
       }
       
       console.log('🏷️ Tags encontradas:', tagsList.length);
