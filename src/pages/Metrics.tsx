@@ -497,19 +497,16 @@ export default function Metrics() {
         throw new Error('Usuário sem tenant_id');
       }
       
-      console.log('📊 [COMPARAÇÃO DEBUG] Iniciando fetchMetrics...', { 
-        user: user?.email, 
-        userTenantId: user?.tenant_id,
+      console.log('📊 [JÚLIO vs MARIA] Iniciando fetchMetrics...', { 
+        usuario: user?.email, 
+        nome: user?.name,
+        tenantId: user?.tenant_id,
+        role: user?.role,
         viewingTenantId,
         effectiveTenantId,
         isViewingAgent,
         viewingAgentId,
-        COMPARACAO: {
-          'user.tenant_id é igual a viewingTenantId?': user?.tenant_id === viewingTenantId,
-          'user.tenant_id': user?.tenant_id,
-          'viewingTenantId': viewingTenantId,
-          'effectiveTenantId': effectiveTenantId
-        }
+        USUARIO_COMPLETO: user
       });
       setLoading(true);
 
@@ -536,10 +533,12 @@ export default function Metrics() {
           salesCount = salesData.length;
           avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
           
-          console.log('💰 [SOLUÇÃO DEFINITIVA] Usando tabela SALES:', { 
+          console.log('💰 [JÚLIO vs MARIA] Usando tabela SALES:', { 
             quantidade: salesCount,
             total: totalSold,
-            tenantId: effectiveTenantId
+            tenantId: effectiveTenantId,
+            usuario: user?.email,
+            dadosCompletos: salesData
           });
         }
       } catch (error) {
