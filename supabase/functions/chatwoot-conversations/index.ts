@@ -263,6 +263,19 @@ serve(async (req: Request): Promise<Response> => {
 
     const data = await chatwootRes.json()
 
+    // Debug: Log da estrutura das conversas retornadas
+    if (data.payload && Array.isArray(data.payload) && data.payload.length > 0) {
+      console.log('📊 Estrutura da primeira conversa retornada pelo Chatwoot:', JSON.stringify(data.payload[0], null, 2))
+      console.log('📅 Campos de data disponíveis:', {
+        created_at: data.payload[0].created_at,
+        updated_at: data.payload[0].updated_at,
+        last_activity_at: data.payload[0].last_activity_at,
+        last_message_at: data.payload[0].last_message_at,
+        last_non_activity_at: data.payload[0].last_non_activity_at,
+        todasChaves: Object.keys(data.payload[0])
+      })
+    }
+
     return new Response(
       JSON.stringify(data),
       {

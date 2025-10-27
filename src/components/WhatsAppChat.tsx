@@ -562,11 +562,21 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-white truncate">{convo.meta?.sender?.name || 'Sem nome'}</span>
                       <span className="text-xs text-[#8696a0] whitespace-nowrap">
-                        {convo.last_message_at 
-                          ? formatDate(convo.last_message_at) 
-                          : convo.messages?.[0]?.created_at
-                          ? formatDate(convo.messages[0].created_at)
-                          : formatDate(convo.updated_at)}
+                        {(() => {
+                          // Tentar usar o campo timestamp Unix (created_at) da última mensagem
+                          if (convo.messages?.[0]?.created_at) {
+                            const timestamp = convo.messages[0].created_at;
+                            // Se for um número (Unix timestamp), converter para string ISO
+                            const dateStr = typeof timestamp === 'number' 
+                              ? new Date(timestamp * 1000).toISOString() 
+                              : timestamp;
+                            return formatDate(dateStr);
+                          }
+                          // Fallback para outros campos de data
+                          if (convo.last_message_at) return formatDate(convo.last_message_at);
+                          if (convo.last_activity_at) return formatDate(convo.last_activity_at);
+                          return formatDate(convo.updated_at);
+                        })()}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
