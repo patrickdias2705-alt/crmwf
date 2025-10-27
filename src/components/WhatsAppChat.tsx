@@ -316,6 +316,15 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Função para obter o nome de exibição (pushname ou name)
+  const getDisplayName = (convo: any) => {
+    // Prioridade: pushname > name > phone_number
+    return convo.meta?.sender?.pushname || 
+           convo.meta?.sender?.name || 
+           convo.meta?.sender?.phone_number || 
+           '?';
+  };
+
   // Função para gerar iniciais do nome
   const getInitials = (name: string) => {
     if (!name) return '?';
@@ -593,13 +602,13 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                   ) : null}
                   <div 
                     className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm ${convo.meta?.sender?.thumbnail ? 'hidden' : 'block'}`}
-                    style={{ backgroundColor: getBackgroundColor(convo.meta?.sender?.name || convo.meta?.sender?.phone_number || '?') }}
+                    style={{ backgroundColor: getBackgroundColor(getDisplayName(convo)) }}
                   >
-                    {getInitials(convo.meta?.sender?.name || convo.meta?.sender?.phone_number || '?')}
+                    {getInitials(getDisplayName(convo))}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-white truncate">{convo.meta?.sender?.name || 'Sem nome'}</span>
+                      <span className="font-medium text-white truncate">{getDisplayName(convo)}</span>
                       <span className="text-xs text-[#8696a0] whitespace-nowrap">
                         {(() => {
                           // Tentar usar o campo timestamp Unix (created_at) da última mensagem
@@ -652,12 +661,12 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                 ) : null}
                 <div 
                   className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-xs ${selectedConversation.meta?.sender?.thumbnail ? 'hidden' : 'block'}`}
-                  style={{ backgroundColor: getBackgroundColor(selectedConversation.meta?.sender?.name || selectedConversation.meta?.sender?.phone_number || '?') }}
+                  style={{ backgroundColor: getBackgroundColor(getDisplayName(selectedConversation)) }}
                 >
-                  {getInitials(selectedConversation.meta?.sender?.name || selectedConversation.meta?.sender?.phone_number || '?')}
+                  {getInitials(getDisplayName(selectedConversation))}
                 </div>
                 <div>
-                  <p className="text-white font-medium">{selectedConversation.meta?.sender?.name || 'Sem nome'}</p>
+                  <p className="text-white font-medium">{getDisplayName(selectedConversation)}</p>
                   <p className="text-xs text-[#8696a0]">{selectedConversation.meta?.sender?.phone_number}</p>
                 </div>
               </div>
