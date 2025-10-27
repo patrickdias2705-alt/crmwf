@@ -479,12 +479,24 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
         keys: Object.keys(result)
       });
       
-      // Tentar diferentes estruturas de resposta
-      const tagsList = result?.payload || result?.data?.payload || result?.data || [];
+      // EXTRAIR TAGS: tentar TODAS as estruturas possíveis
+      let tagsList = [];
+      
+      if (result?.payload && Array.isArray(result.payload)) {
+        tagsList = result.payload;
+      } else if (result?.data?.payload && Array.isArray(result.data.payload)) {
+        tagsList = result.data.payload;
+      } else if (result?.data && Array.isArray(result.data)) {
+        tagsList = result.data;
+      } else if (Array.isArray(result)) {
+        tagsList = result;
+      }
       
       console.log('🏷️ Tags encontradas:', tagsList.length);
       if (tagsList.length > 0) {
         console.log('📝 Primeira tag:', tagsList[0]);
+      } else {
+        console.log('❌ Nenhuma tag encontrada. Estrutura completa:', result);
       }
       
       setTags(tagsList);
@@ -528,6 +540,9 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const result = await response.json();
+      console.log('✅ Tag aplicada com sucesso:', result);
+
       // Atualizar tags da conversa localmente
       setSelectedConversation(prev => {
         if (!prev) return prev;
@@ -541,8 +556,9 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
       toast.success(`Tag "${tag.title}" aplicada!`);
       setShowTagsModal(false);
     } catch (err: any) {
-      console.error('Error applying tag:', err);
-      toast.error('Erro ao aplicar tag');
+      console.error('❌ Error applying tag:', err);
+      console.error('Erro completo:', err.message);
+      toast.error(`Erro ao aplicar tag: ${err.message}`);
     }
   };
 
