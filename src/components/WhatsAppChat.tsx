@@ -24,6 +24,7 @@ type Chat = {
   created_at: string;
   updated_at: string;
   last_activity_at?: string;
+  last_message_at?: string; // Data/hora da última mensagem
   unread_count?: number;
   priority?: string;
 };
@@ -522,7 +523,13 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-white truncate">{convo.meta?.sender?.name || 'Sem nome'}</span>
-                      <span className="text-xs text-[#8696a0] whitespace-nowrap">{formatDate(convo.updated_at)}</span>
+                      <span className="text-xs text-[#8696a0] whitespace-nowrap">
+                        {convo.last_message_at 
+                          ? formatDate(convo.last_message_at) 
+                          : convo.messages?.[0]?.created_at
+                          ? formatDate(convo.messages[0].created_at)
+                          : formatDate(convo.updated_at)}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <p className="text-sm text-[#8696a0] truncate">
