@@ -119,24 +119,42 @@ serve(async (req: Request): Promise<Response> => {
         
         console.log('🗑️ Removing tag:', tagTitle, 'from conversation:', conversationId)
         
-        // Para remover, também usamos POST mas com o ID numérico da label
-        // Primeiro, buscar as labels atuais para encontrar o ID
-        const getLabelsRes = await fetch(
-          `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}`,
-          {
-            headers: {
-              'api_access_token': token,
-              'Content-Type': 'application/json',
-            },
-          }
-        )
+        // Buscar a conversa completa para ter acesso aos labels com ID
+        const conversationUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}`
+        
+        const conversationRes = await fetch(conversationUrl, {
+          headers: {
+            'api_access_token': token,
+            'Content-Type': 'application/json',
+          },
+        })
 
-        if (!getLabelsRes.ok) {
-          throw new Error('Failed to fetch conversation labels')
+        if (!conversationRes.ok) {
+          throw new Error('Failed to fetch conversation')
         }
 
-        const conversationData = await getLabelsRes.json()
-        const labelId = conversationData.payload?.labels?.find((l: any) => l.title === tagTitle)?.id
+        const conversationData = await conversationRes.json()
+        console.log('📋 Conversation data:', JSON.stringify(conversationData.payload || conversationData).substring(0, 500))
+        
+        // Buscar labels da conversa (meta.labels são só strings, precisamos buscar os objetos completos)
+        const allLabelsUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/labels`
+        const allLabelsRes = await fetch(allLabelsUrl, {
+          headers: {
+            'api_access_token': token,
+            'Content-Type': 'application/json',
+          },
+        })
+
+        if (!allLabelsRes.ok) {
+          throw new Error('Failed to fetch labels')
+        }
+
+        const allLabelsData = await allLabelsRes.json()
+        console.log('🏷️ Available labels:', JSON.stringify(allLabelsData.payload || []).substring(0, 500))
+        
+        // Encontrar o ID da label pelo título
+        const labelObject = (allLabelsData.payload || []).find((l: any) => l.title === tagTitle)
+        const labelId = labelObject?.id
 
         if (!labelId) {
           return new Response(
