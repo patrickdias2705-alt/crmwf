@@ -166,13 +166,16 @@ serve(async (req: Request): Promise<Response> => {
           )
         }
 
-        // Remover a label usando o ID
-        const labelsRes = await fetch(`${labelsUrl}/${labelId}`, {
-          method: 'DELETE',
+        // Remover a label usando o ID (POST com title para remover, não DELETE)
+        const labelsRes = await fetch(labelsUrl, {
+          method: 'POST',
           headers: {
             'api_access_token': token,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            labels: [tagTitle],
+          }),
         })
 
         if (!labelsRes.ok) {
