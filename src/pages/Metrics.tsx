@@ -552,13 +552,14 @@ export default function Metrics() {
         throw new Error('Usuário sem tenant_id');
       }
       
-      console.log('📊 Iniciando fetchMetrics...', { 
+      console.log('📊 [JULIO DEBUG] Iniciando fetchMetrics...', { 
         user: user?.email, 
         userTenantId: user?.tenant_id,
         viewingTenantId,
         effectiveTenantId,
         isViewingAgent,
-        viewingAgentId
+        viewingAgentId,
+        ALL_USER_DATA: user
       });
       setLoading(true);
 
@@ -579,7 +580,15 @@ export default function Metrics() {
           totalSold = salesData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
           salesCount = salesData.length;
           avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
-          console.log('💰 VENDAS (tabela sales):', { totalSold, salesCount, avgTicket });
+          console.log('💰 [JULIO DEBUG] VENDAS (tabela sales):', { 
+            totalSold, 
+            salesCount, 
+            avgTicket,
+            tenantId: effectiveTenantId,
+            allSalesData: salesData
+          });
+        } else {
+          console.log('⚠️ [JULIO DEBUG] Nenhuma venda encontrada na tabela sales para tenant:', effectiveTenantId);
         }
       } catch (error) {
         console.log('Tabela sales não acessível, usando fallback:', error);
