@@ -186,7 +186,15 @@ serve(async (req: Request): Promise<Response> => {
 
     // Se conversation_id existe, buscar mensagens dessa conversa
     if (conversationId) {
-      const messagesUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}/messages`
+      // Parâmetros de paginação
+      const before = url.searchParams.get('before') // ID da mensagem para buscar anteriores
+      const limit = url.searchParams.get('limit') || '50' // Quantidade de mensagens (padrão: 50)
+      
+      let messagesUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}/messages?limit=${limit}`
+      
+      if (before) {
+        messagesUrl += `&before=${before}`
+      }
       
       console.log('📨 Fetching messages from Chatwoot:', messagesUrl)
 

@@ -40,6 +40,7 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
   const [selectedConversation, setSelectedConversation] = useState<Chat | null>(null);
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef<number>(0);
   
@@ -184,7 +185,12 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
 
   const loadMessagesForConversation = async (conversationId: number, silent = false) => {
     try {
-      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations?conversation_id=${conversationId}`);
+      if (!silent) {
+        setIsLoadingMessages(true);
+      }
+      
+      // Carregar apenas as últimas 50 mensagens para melhor performance
+      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations?conversation_id=${conversationId}&limit=50`);
 
       const response = await fetch(fullUrl, {
         headers: {
@@ -248,6 +254,8 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
       }
     } catch (err: any) {
       console.error('❌ Error loading messages:', err);
+    } finally {
+      setIsLoadingMessages(false);
     }
   };
 
@@ -726,7 +734,14 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
               />
             </div>
             <div className="h-full overflow-y-auto px-4 py-6 space-y-2 relative z-10">
-              {selectedConversation.messages && selectedConversation.messages.length > 0 ? (
+              {isLoadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <RefreshCw className="h-8 w-8 animate-spin mx-auto text-green-500 mb-2" />
+                    <p className="text-[#8696a0] text-sm">Carregando mensagens...</p>
+                  </div>
+                </div>
+              ) : selectedConversation.messages && selectedConversation.messages.length > 0 ? (
                 <>
                   {selectedConversation.messages.map((msg: any, idx: number) => {
                     // Debug: logar estrutura da mensagem
