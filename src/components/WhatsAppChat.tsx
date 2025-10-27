@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Phone, Mail, Clock, CheckCircle, XCircle, RefreshCw, Send } from "lucide-react";
+import { MessageSquare, Phone, Mail, Clock, CheckCircle, XCircle, RefreshCw, Send, Tag, X } from "lucide-react";
 import { toast } from "sonner";
 import { getEdgeFunctionUrl } from "@/utils/api";
 
@@ -13,6 +13,13 @@ type Contact = {
   name: string;
   phone_number: string;
   email?: string;
+};
+
+type Tag = {
+  id: number;
+  title: string;
+  description?: string;
+  color?: string;
 };
 
 type Chat = {
@@ -27,6 +34,7 @@ type Chat = {
   last_message_at?: string; // Data/hora da última mensagem
   unread_count?: number;
   priority?: string;
+  labels?: Tag[];
 };
 
 interface WhatsAppChatProps {
@@ -53,6 +61,11 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
   
   // Estado para imagem expandida
   const [expandedImage, setExpandedImage] = useState<string | null>(null);
+  
+  // Estados para tags
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
 
   const fetchConversations = async () => {
     try {
@@ -436,6 +449,78 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
     toast.info(`Arquivo selecionado: ${file.name}`);
   };
 
+  // Função para buscar tags do Chatwoot
+  const fetchTags = async () => {
+    try {
+      setIsLoadingTags(true);
+      const fullUrl = getEdgeFunctionUrl('chatwoot-conversations?list_tags=true');
+
+      const response = await fetch(fullUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const tagsList = result?.payload || [];
+      
+      setTags(tagsList);
+      setShowTagsModal(true);
+    } catch (err: any) {
+      console.error('Error fetching tags:', err);
+      toast.error('Erro ao carregar tags');
+    } finally {
+      setIsLoadingTags(false);
+    }
+  };
+
+  // Função para aplicar tag na conversa
+  const applyTag = async (tag: Tag) => {
+    if (!selectedConversation) return;
+
+    try {
+      // Chamar API do Chatwoot para aplicar tag
+      const response = await fetch(
+        `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/1/conversations/${selectedConversation.id}/labels`,
+        {
+          method: 'POST',
+          headers: {
+            'api_access_token': 'HUYUHnVUAunUeAWpcUS8VWeK',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            labels: [tag.title]
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // Atualizar tags da conversa localmente
+      setSelectedConversation(prev => {
+        if (!prev) return prev;
+        const updatedLabels = [...(prev.labels || [])];
+        if (!updatedLabels.find(l => l.id === tag.id)) {
+          updatedLabels.push(tag);
+        }
+        return { ...prev, labels: updatedLabels };
+      });
+
+      toast.success(`Tag "${tag.title}" aplicada!`);
+      setShowTagsModal(false);
+    } catch (err: any) {
+      console.error('Error applying tag:', err);
+      toast.error('Erro ao aplicar tag');
+    }
+  };
+
   const sendMessage = async () => {
     if (!message.trim() || !selectedConversation) {
       toast.error('Digite uma mensagem');
@@ -712,6 +797,9 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                 </Button>
                 <Button variant="ghost" size="sm" className="text-white">
                   <Phone className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="sm" className="text-white" onClick={fetchTags}>
+                  <Tag className="h-5 w-5" />
                 </Button>
                 <Button variant="ghost" size="sm" className="text-white">
                   <Mail className="h-5 w-5" />
@@ -1131,6 +1219,64 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
               className="max-w-full max-h-full object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Tags */}
+      {showTagsModal && (
+        <div 
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setShowTagsModal(false)}
+        >
+          <div 
+            className="bg-[#202c33] rounded-lg shadow-xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#313d45] flex items-center justify-between">
+              <h3 className="text-white font-semibold">Etiquetas</h3>
+              <button
+                onClick={() => setShowTagsModal(false)}
+                className="text-[#8696a0] hover:text-white transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Lista de Tags */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {isLoadingTags ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin text-green-500" />
+                </div>
+              ) : tags.length === 0 ? (
+                <p className="text-center text-[#8696a0] py-8">Nenhuma etiqueta encontrada</p>
+              ) : (
+                <div className="space-y-2">
+                  {tags.map((tag) => (
+                    <button
+                      key={tag.id}
+                      onClick={() => applyTag(tag)}
+                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-[#2a3942] transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-4 h-4 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: tag.color || '#005c4b' }}
+                        />
+                        <div className="flex-1">
+                          <p className="text-white font-medium">{tag.title}</p>
+                          {tag.description && (
+                            <p className="text-[#8696a0] text-sm">{tag.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
