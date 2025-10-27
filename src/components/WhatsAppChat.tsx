@@ -455,6 +455,8 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
       setIsLoadingTags(true);
       const fullUrl = getEdgeFunctionUrl('chatwoot-conversations?list_tags=true');
 
+      console.log('🔍 URL da requisição:', fullUrl);
+
       const response = await fetch(fullUrl, {
         headers: {
           'Content-Type': 'application/json',

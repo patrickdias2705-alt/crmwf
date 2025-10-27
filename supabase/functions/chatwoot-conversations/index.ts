@@ -187,8 +187,9 @@ serve(async (req: Request): Promise<Response> => {
       const tagsData = await tagsRes.json()
       console.log('✅ Tags loaded:', tagsData.payload?.length || 0)
       
+      // Retornar com estrutura data.payload para consistência com outras respostas
       return new Response(
-        JSON.stringify(tagsData),
+        JSON.stringify({ data: { payload: tagsData.payload || [] } }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           status: 200,
