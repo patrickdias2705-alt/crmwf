@@ -119,8 +119,37 @@ serve(async (req: Request): Promise<Response> => {
         
         console.log('🗑️ Removing tag:', tagTitle, 'from conversation:', conversationId)
         
-        // Para remover, usamos DELETE com o título da label
-        const labelsRes = await fetch(`${labelsUrl}/${encodeURIComponent(tagTitle)}`, {
+        // Para remover, também usamos POST mas com o ID numérico da label
+        // Primeiro, buscar as labels atuais para encontrar o ID
+        const getLabelsRes = await fetch(
+          `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/conversations/${conversationId}`,
+          {
+            headers: {
+              'api_access_token': token,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+
+        if (!getLabelsRes.ok) {
+          throw new Error('Failed to fetch conversation labels')
+        }
+
+        const conversationData = await getLabelsRes.json()
+        const labelId = conversationData.payload?.labels?.find((l: any) => l.title === tagTitle)?.id
+
+        if (!labelId) {
+          return new Response(
+            JSON.stringify({ error: 'Label not found' }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              status: 404,
+            }
+          )
+        }
+
+        // Remover a label usando o ID
+        const labelsRes = await fetch(`${labelsUrl}/${labelId}`, {
           method: 'DELETE',
           headers: {
             'api_access_token': token,
