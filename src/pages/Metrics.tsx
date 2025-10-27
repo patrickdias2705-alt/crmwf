@@ -497,14 +497,19 @@ export default function Metrics() {
         throw new Error('Usuário sem tenant_id');
       }
       
-      console.log('📊 [JULIO DEBUG] Iniciando fetchMetrics...', { 
+      console.log('📊 [COMPARAÇÃO DEBUG] Iniciando fetchMetrics...', { 
         user: user?.email, 
         userTenantId: user?.tenant_id,
         viewingTenantId,
         effectiveTenantId,
         isViewingAgent,
         viewingAgentId,
-        ALL_USER_DATA: user
+        COMPARACAO: {
+          'user.tenant_id é igual a viewingTenantId?': user?.tenant_id === viewingTenantId,
+          'user.tenant_id': user?.tenant_id,
+          'viewingTenantId': viewingTenantId,
+          'effectiveTenantId': effectiveTenantId
+        }
       });
       setLoading(true);
 
@@ -525,15 +530,18 @@ export default function Metrics() {
           totalSold = salesData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
           salesCount = salesData.length;
           avgTicket = salesCount > 0 ? totalSold / salesCount : 0;
-          console.log('💰 [JULIO DEBUG] VENDAS (tabela sales):', { 
+          console.log('💰 [COMPARAÇÃO DEBUG] VENDAS (tabela sales):', { 
             totalSold, 
             salesCount, 
             avgTicket,
             tenantId: effectiveTenantId,
-            allSalesData: salesData
+            usuario: user?.email,
+            quantidadeDeVendas: salesData.length,
+            primeiroRegistro: salesData[0],
+            todosOsRegistros: salesData
           });
         } else {
-          console.log('⚠️ [JULIO DEBUG] Nenhuma venda encontrada na tabela sales para tenant:', effectiveTenantId);
+          console.log('⚠️ [COMPARAÇÃO DEBUG] Nenhuma venda encontrada na tabela sales para tenant:', effectiveTenantId, 'usuario:', user?.email);
         }
       } catch (error) {
         console.log('Tabela sales não acessível, usando fallback:', error);
