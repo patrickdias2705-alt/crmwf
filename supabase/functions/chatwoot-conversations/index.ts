@@ -101,6 +101,45 @@ serve(async (req: Request): Promise<Response> => {
     const inboxId = url.searchParams.get('inbox_id')
     const conversationId = url.searchParams.get('conversation_id')
     const listInboxes = url.searchParams.get('list_inboxes')
+    const listTags = url.searchParams.get('list_tags')
+
+    // Se listTags=true, buscar lista de tags
+    if (listTags === 'true') {
+      const tagsUrl = `https://chatwoot-chatwoot.l0vghu.easypanel.host/api/v1/accounts/${accountId}/labels`
+      
+      console.log('🏷️ Fetching tags from Chatwoot:', tagsUrl)
+
+      const tagsRes = await fetch(tagsUrl, {
+        headers: {
+          'api_access_token': token,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!tagsRes.ok) {
+        console.error('Chatwoot API error:', tagsRes.status, tagsRes.statusText)
+        return new Response(
+          JSON.stringify({ 
+            error: `Chatwoot API error: ${tagsRes.status} ${tagsRes.statusText}` 
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            status: tagsRes.status,
+          }
+        )
+      }
+
+      const tagsData = await tagsRes.json()
+      console.log('✅ Tags loaded:', tagsData.payload?.length || 0)
+      
+      return new Response(
+        JSON.stringify(tagsData),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      )
+    }
 
     // Se listInboxes=true, buscar lista de inboxes
     if (listInboxes === 'true') {
