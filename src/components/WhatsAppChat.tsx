@@ -83,6 +83,13 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
         return;
       }
       
+      // Debug: ver estrutura completa das conversas
+      console.log('📊 Conversas retornadas pelo Chatwoot:', {
+        total: conversationsList.length,
+        primeiraConversa: conversationsList[0],
+        camposDisponiveis: conversationsList[0] ? Object.keys(conversationsList[0]) : []
+      });
+      
       setConversations(conversationsList);
       toast.success(`${conversationsList.length} conversas carregadas`);
     } catch (err: any) {
@@ -263,13 +270,44 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    
     const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR', { 
-      day: '2-digit', 
-      month: '2-digit', 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
+    
+    // Verificar se a data é válida
+    if (isNaN(date.getTime())) {
+      console.warn('⚠️ Data inválida:', dateString);
+      return '';
+    }
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Comparar apenas datas (sem hora)
+    const isToday = messageDate.getTime() === today.getTime();
+    const isYesterday = messageDate.getTime() === yesterday.getTime();
+    
+    if (isToday) {
+      // Se for hoje, mostrar apenas hora
+      return date.toLocaleTimeString('pt-BR', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } else if (isYesterday) {
+      // Se for ontem, mostrar "ontem"
+      return 'Ontem';
+    } else {
+      // Se for outro dia, mostrar data e hora
+      return date.toLocaleDateString('pt-BR', { 
+        day: '2-digit', 
+        month: '2-digit',
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    }
   };
 
   const formatAudioTime = (seconds: number) => {
