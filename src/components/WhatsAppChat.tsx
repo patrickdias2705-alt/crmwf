@@ -316,6 +316,33 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Função para gerar iniciais do nome
+  const getInitials = (name: string) => {
+    if (!name) return '?';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) {
+      // Se tem apenas um nome, pegar as duas primeiras letras
+      return name.substring(0, 2).toUpperCase();
+    }
+    // Se tem mais de um nome, pegar a primeira letra de cada
+    return parts[0][0].toUpperCase() + parts[parts.length - 1][0].toUpperCase();
+  };
+
+  // Função para gerar cor de fundo baseada no nome (cores do WhatsApp)
+  const getBackgroundColor = (name: string) => {
+    const colors = [
+      '#1f7a8c', '#2e7d32', '#6a1b9a', '#c62828',
+      '#e65100', '#795548', '#607d8b', '#455a64',
+      '#0277bd', '#00838f', '#558b2f', '#7b1fa2',
+      '#ad1457', '#d84315', '#ff6f00', '#f9a825'
+    ];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   // Função para adicionar emoji
   const addEmoji = (emoji: string) => {
     setMessage(prev => prev + emoji);
@@ -551,13 +578,25 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                 onClick={() => setSelectedConversation(convo)}
               >
                 <div className="flex items-start gap-3">
-                  {convo.meta?.sender?.thumbnail && (
+                  {convo.meta?.sender?.thumbnail ? (
                     <img 
                       src={convo.meta.sender.thumbnail} 
                       alt={convo.meta.sender.name} 
                       className="w-12 h-12 rounded-full object-cover"
+                      onError={(e) => {
+                        // Se a imagem falhar, mostra as iniciais
+                        e.currentTarget.style.display = 'none';
+                        const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (fallback) fallback.style.display = 'flex';
+                      }}
                     />
-                  )}
+                  ) : null}
+                  <div 
+                    className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-sm ${convo.meta?.sender?.thumbnail ? 'hidden' : 'block'}`}
+                    style={{ backgroundColor: getBackgroundColor(convo.meta?.sender?.name || convo.meta?.sender?.phone_number || '?') }}
+                  >
+                    {getInitials(convo.meta?.sender?.name || convo.meta?.sender?.phone_number || '?')}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-white truncate">{convo.meta?.sender?.name || 'Sem nome'}</span>
@@ -599,13 +638,24 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
             {/* Header do Chat */}
             <div className="bg-[#202c33] px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {selectedConversation.meta?.sender?.thumbnail && (
+                {selectedConversation.meta?.sender?.thumbnail ? (
                   <img 
                     src={selectedConversation.meta.sender.thumbnail} 
                     alt={selectedConversation.meta.sender.name} 
                     className="w-10 h-10 rounded-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                      if (fallback) fallback.style.display = 'flex';
+                    }}
                   />
-                )}
+                ) : null}
+                <div 
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-xs ${selectedConversation.meta?.sender?.thumbnail ? 'hidden' : 'block'}`}
+                  style={{ backgroundColor: getBackgroundColor(selectedConversation.meta?.sender?.name || selectedConversation.meta?.sender?.phone_number || '?') }}
+                >
+                  {getInitials(selectedConversation.meta?.sender?.name || selectedConversation.meta?.sender?.phone_number || '?')}
+                </div>
                 <div>
                   <p className="text-white font-medium">{selectedConversation.meta?.sender?.name || 'Sem nome'}</p>
                   <p className="text-xs text-[#8696a0]">{selectedConversation.meta?.sender?.phone_number}</p>
