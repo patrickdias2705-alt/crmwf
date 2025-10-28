@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { MessageSquare, Phone, Mail, Clock, CheckCircle, XCircle, RefreshCw, Send, Tag, X } from "lucide-react";
+import { MessageSquare, Phone, Mail, Clock, CheckCircle, XCircle, RefreshCw, Send, Tag, X, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { getEdgeFunctionUrl } from "@/utils/api";
+import { WhatsAppBIReports } from "./WhatsAppBIReports";
 
 type Contact = {
   id: number;
@@ -35,6 +36,8 @@ type Chat = {
   unread_count?: number;
   priority?: string;
   labels?: Tag[];
+  typing?: boolean; // Cliente está digitando
+  recording_audio?: boolean; // Cliente está gravando áudio
 };
 
 interface WhatsAppChatProps {
@@ -52,6 +55,12 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const lastMessageCountRef = useRef<number>(0);
   
+  // Armazenar conversas já visualizadas (para persistir entre reloads)
+  const [readConversations, setReadConversations] = useState<Set<number>>(() => {
+    const stored = localStorage.getItem('whatsapp-read-conversations');
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  });
+  
   // Novos estados para emoji, anexo e gravação de áudio
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -67,45 +76,68 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
   const [showTagsModal, setShowTagsModal] = useState(false);
   const [isLoadingTags, setIsLoadingTags] = useState(false);
 
+  // Novo estado para relatórios BI
+  const [showBIReports, setShowBIReports] = useState(false);
+
   const fetchConversations = async () => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Usar a Edge Function do Supabase como proxy
-      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}` : ''}`);
+      // Buscar 4 páginas para pegar as 100 conversas mais recentes
+      let allConversations: any[] = [];
+      const MAX_PAGES = 4; // 4 x 25 = 100 conversas
+      
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}&page=${page}` : `?page=${page}`}`);
+        
+        console.log(`📄 Carregando página ${page}...`);
+        
+        const response = await fetch(fullUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
+          },
+        });
 
-      const response = await fetch(fullUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
-        },
-      });
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const result = await response.json();
+        const conversationsList = result?.data?.payload || [];
+        
+        if (!Array.isArray(conversationsList)) {
+          console.error('Expected array but got:', conversationsList);
+          break;
+        }
+        
+        allConversations = allConversations.concat(conversationsList);
+        
+        // Se retornou menos de 25, não há mais páginas
+        if (conversationsList.length < 25) {
+          console.log('✅ Todas as páginas carregadas');
+          break;
+        }
       }
-
-      const result = await response.json();
       
-      // A API do Chatwoot retorna {data: {payload: [...]}}
-      const conversationsList = result?.data?.payload || [];
+      console.log('📊 Total de conversas carregadas:', allConversations.length);
       
-      if (!Array.isArray(conversationsList)) {
-        console.error('Expected array but got:', conversationsList);
-        setConversations([]);
-        return;
-      }
+      // Remover duplicatas por ID
+      const uniqueConversations = allConversations.filter((convo, index, self) =>
+        index === self.findIndex((c) => c.id === convo.id)
+      );
       
-      // Debug: ver estrutura completa das conversas
-      console.log('📊 Conversas retornadas pelo Chatwoot:', {
-        total: conversationsList.length,
-        primeiraConversa: conversationsList[0],
-        camposDisponiveis: conversationsList[0] ? Object.keys(conversationsList[0]) : []
+      // Aplicar conversas lidas (zerar unread_count para conversas já visualizadas)
+      const conversationsWithReadStatus = uniqueConversations.map(conv => {
+        if (readConversations.has(conv.id)) {
+          return { ...conv, unread_count: 0 };
+        }
+        return conv;
       });
       
-      setConversations(conversationsList);
-      toast.success(`${conversationsList.length} conversas carregadas`);
+      setConversations(conversationsWithReadStatus);
+      toast.success(`${allConversations.length} conversas carregadas`);
     } catch (err: any) {
       console.error('Error fetching conversations:', err);
       setError(err.message || 'Erro ao carregar conversas');
@@ -159,38 +191,89 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
     return () => clearInterval(interval);
   }, [selectedConversation?.id, selectedConversation?.messages?.length]);
 
-  // Auto-refresh conversas SEM recarregar mensagens visíveis
+  // Auto-refresh conversas a cada 10 segundos (mais leve)
   useEffect(() => {
+    if (!inboxId || isLoading) return;
+    
     const interval = setInterval(() => {
-      if (inboxId && !isLoading) {
-        // Atualizar apenas a lista de conversas, sem recarregar mensagens
-        fetchConversationsSilently();
-      }
-    }, 15000); // 15 segundos
+      console.log('🔄 Atualizando lista de conversas...');
+      fetchConversationsSilently();
+    }, 10000); // 10 segundos
 
     return () => clearInterval(interval);
   }, [inboxId, isLoading]);
 
+  // Função para marcar conversa como lida
+  const markAsRead = async (conversationId: number) => {
+    console.log('📖 Marcando conversa como lida:', conversationId);
+    
+    // Adicionar ao set de conversas lidas
+    const newReadSet = new Set(readConversations);
+    newReadSet.add(conversationId);
+    setReadConversations(newReadSet);
+    
+    // Salvar no localStorage para persistir entre reloads
+    localStorage.setItem('whatsapp-read-conversations', JSON.stringify(Array.from(newReadSet)));
+    
+    // Atualizar o unread_count localmente imediatamente
+    setConversations(prev => prev.map(conv => {
+      if (conv.id === conversationId) {
+        return { ...conv, unread_count: 0 };
+      }
+      // Se a conversa foi marcada como lida antes, manter unread_count = 0
+      if (newReadSet.has(conv.id)) {
+        return { ...conv, unread_count: 0 };
+      }
+      return conv;
+    }));
+  };
+
   // Função para recarregar conversas sem mostrar loading
   const fetchConversationsSilently = async () => {
     try {
-      const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}` : ''}`);
+      // Buscar 4 páginas (100 conversas mais recentes)
+      let allConversations: any[] = [];
+      const MAX_PAGES = 4;
+      
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const fullUrl = getEdgeFunctionUrl(`chatwoot-conversations${inboxId ? `?inbox_id=${inboxId}&page=${page}` : `?page=${page}`}`);
 
-      const response = await fetch(fullUrl, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
-        },
+        const response = await fetch(fullUrl, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZXFhYWdubmtpbGlobGZqYnJtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk1MjUwMDAsImV4cCI6MjA3NTEwMTAwMH0.98gOy6jKe_WYC0wTOBwM0j6SolYsWLOiB1Z-cm56gg0',
+          },
+        });
+
+        if (!response.ok) break;
+
+        const result = await response.json();
+        const conversationsList = result?.data?.payload || [];
+        
+        if (!Array.isArray(conversationsList)) break;
+        
+        allConversations = allConversations.concat(conversationsList);
+        
+        // Se retornou menos de 25, não há mais páginas
+        if (conversationsList.length < 25) {
+          break;
+        }
+      }
+      
+      // Remover duplicatas por ID
+      const uniqueConversations = allConversations.filter((convo, index, self) =>
+        index === self.findIndex((c) => c.id === convo.id)
+      );
+      
+      // Aplicar conversas lidas (zerar unread_count para conversas já visualizadas)
+      const conversationsWithReadStatus = uniqueConversations.map(conv => {
+        if (readConversations.has(conv.id)) {
+          return { ...conv, unread_count: 0 };
+        }
+        return conv;
       });
-
-      if (!response.ok) return;
-
-      const result = await response.json();
-      const conversationsList = result?.data?.payload || [];
       
-      if (!Array.isArray(conversationsList)) return;
-      
-      setConversations(conversationsList);
+      setConversations(conversationsWithReadStatus);
     } catch (err) {
       console.error('Error silently fetching conversations:', err);
     }
@@ -765,7 +848,11 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                 className={`px-4 py-3 cursor-pointer hover:bg-[#202c33] transition-colors border-b border-[#313d45] ${
                   selectedConversation?.id === convo.id ? 'bg-[#2a3942]' : ''
                 }`}
-                onClick={() => setSelectedConversation(convo)}
+                onClick={() => {
+                  setSelectedConversation(convo);
+                  // SEMPRE marcar como lida ao clicar (mesmo sem unread_count)
+                  markAsRead(convo.id);
+                }}
               >
                 <div className="flex items-start gap-3">
                   {convo.meta?.sender?.thumbnail ? (
@@ -810,28 +897,51 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                           </div>
                         )}
                       </div>
-                      <span className="text-xs text-[#8696a0] whitespace-nowrap">
-                        {(() => {
-                          // Tentar usar o campo timestamp Unix (created_at) da última mensagem
-                          if (convo.messages?.[0]?.created_at) {
-                            const timestamp = convo.messages[0].created_at;
-                            // Se for um número (Unix timestamp), converter para string ISO
-                            const dateStr = typeof timestamp === 'number' 
-                              ? new Date(timestamp * 1000).toISOString() 
-                              : timestamp;
-                            return formatDate(dateStr);
-                          }
-                          // Fallback para outros campos de data
-                          if (convo.last_message_at) return formatDate(convo.last_message_at);
-                          if (convo.last_activity_at) return formatDate(convo.last_activity_at);
-                          return formatDate(convo.updated_at);
-                        })()}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {convo.unread_count && convo.unread_count > 0 && (
+                          <span className="bg-[#25D366] text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                            {convo.unread_count}
+                          </span>
+                        )}
+                        <span className="text-xs text-[#8696a0] whitespace-nowrap">
+                          {(() => {
+                            // Tentar usar o campo timestamp Unix (created_at) da última mensagem
+                            if (convo.messages?.[0]?.created_at) {
+                              const timestamp = convo.messages[0].created_at;
+                              // Se for um número (Unix timestamp), converter para string ISO
+                              const dateStr = typeof timestamp === 'number' 
+                                ? new Date(timestamp * 1000).toISOString() 
+                                : timestamp;
+                              return formatDate(dateStr);
+                            }
+                            // Fallback para outros campos de data
+                            if (convo.last_message_at) return formatDate(convo.last_message_at);
+                            if (convo.last_activity_at) return formatDate(convo.last_activity_at);
+                            return formatDate(convo.updated_at);
+                          })()}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm text-[#8696a0] truncate">
-                        {convo.messages?.[0]?.content?.substring(0, 30) || 'Sem mensagens'}
-                      </p>
+                      {convo.typing ? (
+                        <div className="flex items-center gap-1 text-[#8696a0]">
+                          <div className="flex gap-1">
+                            <div className="w-1 h-1 rounded-full bg-[#8696a0] animate-typing"></div>
+                            <div className="w-1 h-1 rounded-full bg-[#8696a0] animate-typing"></div>
+                            <div className="w-1 h-1 rounded-full bg-[#8696a0] animate-typing"></div>
+                          </div>
+                          <span className="text-sm italic ml-1">digitando...</span>
+                        </div>
+                      ) : convo.recording_audio ? (
+                        <div className="flex items-center gap-1 text-red-400">
+                          <div className="w-3 h-3 rounded-full bg-red-400 animate-recording"></div>
+                          <span className="text-sm italic ml-1">gravando áudio...</span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-[#8696a0] truncate">
+                          {convo.messages?.[0]?.content?.substring(0, 30) || 'Sem mensagens'}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -931,6 +1041,15 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
                 </Button>
                 <Button variant="ghost" size="sm" className="text-white">
                   <Mail className="h-5 w-5" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-[#d9dee0] hover:text-white hover:bg-[#313d45]"
+                  onClick={() => setShowBIReports(!showBIReports)}
+                >
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Relatórios BI
                 </Button>
               </div>
             </div>
@@ -1408,6 +1527,13 @@ export default function WhatsAppChat({ inboxId }: WhatsAppChatProps) {
           </div>
         </div>
       )}
+
+      {/* Modal de Relatórios BI */}
+      <WhatsAppBIReports 
+        open={showBIReports} 
+        onOpenChange={setShowBIReports}
+        inboxId={typeof inboxId === 'number' ? inboxId : parseInt(inboxId || '0')}
+      />
     </div>
   );
 }
