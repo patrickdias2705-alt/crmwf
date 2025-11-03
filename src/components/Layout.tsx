@@ -13,6 +13,7 @@ import {
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TenantViewBanner } from "@/components/TenantViewBanner";
 import { TenantQuickSwitch } from "@/components/TenantQuickSwitch";
+import { MonthlyGoalThermometer } from "@/components/MonthlyGoalThermometer";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -36,7 +37,6 @@ export function Layout({ children }: LayoutProps) {
             <SidebarTrigger className="hover:bg-primary/10 hover:text-primary transition-all duration-300 rounded-lg p-2" />
             <div className="flex items-center gap-3">
               <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-primary via-accent to-secondary shadow-lg flex items-center justify-center overflow-hidden zap-glow">
-                <span className="text-xs font-display font-bold text-primary-foreground">NMD</span>
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-transparent"></div>
               </div>
               <div>
@@ -97,6 +97,9 @@ export function Layout({ children }: LayoutProps) {
           <TenantViewBanner />
           {children}
         </main>
+        
+        {/* Termômetro de Meta Mensal - Fixo na tela */}
+        <MonthlyGoalThermometer />
       </SidebarInset>
     </SidebarProvider>
   );

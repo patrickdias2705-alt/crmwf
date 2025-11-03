@@ -15,12 +15,10 @@ import { ValuesVisibilityProvider } from "@/contexts/ValuesVisibilityContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Leads from "./pages/Leads";
-import Conversations from "./pages/Conversations";
 import Pipelines from "./pages/Pipelines";
 import Metrics from "./pages/Metrics";
 // import WhatsApp from "./pages/WhatsApp";
 import WhatsAppTest from "./pages/WhatsAppTest";
-import ChatwootChat from "./pages/ChatwootChat";
 import Journey from "./pages/Journey";
 import Inbox from "./pages/Inbox";
 import Settings from "./pages/Settings";
@@ -110,7 +108,7 @@ const App = () => {
                 path="/" 
                 element={
                   <ProtectedRoute>
-                    <Index />
+                    <Navigate to="/metrics" replace />
                   </ProtectedRoute>
                 } 
               />
@@ -119,14 +117,6 @@ const App = () => {
                 element={
                   <ProtectedRoute>
                     <Leads />
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/conversations" 
-                element={
-                  <ProtectedRoute>
-                    <Conversations />
                   </ProtectedRoute>
                 } 
               />
@@ -159,14 +149,6 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <WhatsAppTest />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/chatwoot" 
-              element={
-                <ProtectedRoute>
-                  <ChatwootChat />
                 </ProtectedRoute>
               } 
             />

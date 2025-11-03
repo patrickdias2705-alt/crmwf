@@ -400,6 +400,32 @@ serve(async (req) => {
           })
           .eq('instance_name', instance);
       }
+    } else if (webhookData.event === 'presence.update') {
+      // Handle typing/recording status updates
+      console.log('📊 Presence update received:', webhookData);
+      
+      const presenceData = webhookData.data;
+      const isTyping = presenceData.type === 'composing' || presenceData.presences?.composing;
+      const isRecording = presenceData.type === 'recording' || presenceData.presences?.recording;
+      const from = presenceData.id?.split('@')[0] || presenceData.remoteJid?.split('@')[0];
+      
+      console.log('👤 Presence:', { from, isTyping, isRecording });
+      
+      // TODO: Aqui precisamos adicionar lógica para salvar o status de typing/recording
+      // Por enquanto, vamos emitir um evento em tempo real
+      if (from) {
+        const channel = supabaseClient.channel(`presence_${from}`);
+        await channel.send({
+          type: 'broadcast',
+          event: 'presence.update',
+          payload: {
+            from,
+            typing: isTyping,
+            recording: isRecording,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
     } else if (webhookData.pairingCode || webhookData.code) {
       // Handle pairing code data
       console.log('Processing pairing code data:', webhookData);

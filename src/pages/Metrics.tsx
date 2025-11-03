@@ -12,12 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { SalesSummary } from '@/components/SalesSummary';
-import { LiveSalesStats } from '@/components/LiveSalesStats';
 import { DynamicConversionFunnel } from '@/components/DynamicConversionFunnel';
 import { ExportLeadsButton } from '@/components/ExportLeadsButton';
 import { ExpandableMetricCard } from '@/components/ExpandableMetricCard';
+import { DashboardGauges, GaugeCard } from '@/components/Metrics';
 import { useTenantView } from '@/contexts/TenantViewContext';
 import { useValuesVisibility } from '@/contexts/ValuesVisibilityContext';
+import { useDailySales } from '@/hooks/useDailySales';
 
 interface MetricCard {
   title: string;
@@ -384,6 +385,7 @@ export default function Metrics() {
   const { user, loading: authLoading } = useAuth();
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
+  const { total: dailySalesTotal, loading: dailySalesLoading } = useDailySales();
   
   // Log inicial do usuário
   console.log('🔍 [INÍCIO] User data:', {
@@ -393,6 +395,9 @@ export default function Metrics() {
     role: user?.role,
     userObject: user
   });
+  
+  // Log diário de vendas
+  console.log('💰 [Metrics] Total vendas diárias:', dailySalesTotal, 'Loading:', dailySalesLoading);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState('7d');
   const [metrics, setMetrics] = useState<MetricCard[]>([]);
@@ -402,6 +407,16 @@ export default function Metrics() {
   const [ltv, setLtv] = useState(0);
   const [cac, setCac] = useState(0);
   const [roi, setRoi] = useState(0);
+  const [gaugeMetrics, setGaugeMetrics] = useState({
+    totalLeads: 0,
+    conversionRate: 0,
+    messagesSent: 0,
+    qualified: 0,
+    openBudgets: 0,
+    avgTicket: 0,
+    totalSold: 0,
+    closedLeads: 0
+  });
 
   // Configurações de tráfego pago
   const [trafficSpend, setTrafficSpend] = useState(0); // Investimento em tráfego
@@ -445,6 +460,14 @@ export default function Metrics() {
   useEffect(() => {
     // Sempre carregar métricas usando o tenant_id do usuário logado
     fetchMetrics();
+    
+    // Atualizar métricas a cada 60 segundos
+    const interval = setInterval(() => {
+      fetchMetrics();
+    }, 60000);
+    
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, viewingAgentId, isViewingAgent]);
 
   // Atualização em tempo real
@@ -929,6 +952,18 @@ export default function Metrics() {
       setDailyData(dailyChartData);
       setSourceData(sourceChartData);
       
+      // Atualizar métricas dos gauges
+      setGaugeMetrics({
+        totalLeads: totalLeadsCount,
+        conversionRate,
+        messagesSent: messagesCount,
+        qualified: qualifiedCount,
+        openBudgets: openBudgetsCount,
+        avgTicket,
+        totalSold,
+        closedLeads: salesCount
+      });
+      
       console.log('📊 Métricas carregadas:', {
         totalLeads: totalLeadsCount,
         totalSold,
@@ -1058,37 +1093,21 @@ export default function Metrics() {
         </div>
 
 
-        {/* Cards de Métricas Visuais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {metrics.map((metric, index) => {
-            const Icon = metric.icon;
-            const chartType = getChartTypeForMetric(metric.title);
-            const chartData = getChartDataForMetric(metric.title, dailyData);
-            
-            return (
-              <ExpandableMetricCard
-                key={index} 
-                title={metric.title}
-                value={metric.value}
-                change={metric.change}
-                icon={Icon}
-                color={metric.color.replace('text-', '').replace('-500', '')}
-                chartType={chartType}
-                chartData={chartData}
-                showValues={valuesVisible}
-                subtitle=""
-                onDataRequest={async (period, metricTitle) => {
-                  // Função para buscar dados expandidos baseado na métrica
-                  const effectiveTenantId = user?.tenant_id;
-                  return await fetchExpandedMetricData(period, metricTitle, effectiveTenantId);
-                }}
-              />
-            );
-          })}
-        </div>
+        {/* Dashboard de Gauges */}
+        <DashboardGauges
+          totalLeads={gaugeMetrics.totalLeads}
+          conversionRate={gaugeMetrics.conversionRate}
+          messagesSent={gaugeMetrics.messagesSent}
+          qualified={gaugeMetrics.qualified}
+          openBudgets={gaugeMetrics.openBudgets}
+          avgTicket={gaugeMetrics.avgTicket}
+          totalSold={gaugeMetrics.totalSold}
+          closedLeads={gaugeMetrics.closedLeads}
+          showValues={valuesVisible}
+        />
 
         {/* Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {/* Gráfico de Linha - Performance Diária */}
           <Card className="animate-fade-in" style={{ animationDelay: '600ms' }}>
             <CardHeader>
@@ -1127,6 +1146,20 @@ export default function Metrics() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          {/* Gauge Total de Vendas Diárias (últimas 24h) */}
+          <div className="animate-fade-in" style={{ animationDelay: '700ms' }}>
+            <GaugeCard
+              title="Total de Vendas Diárias"
+              value={dailySalesTotal}
+              change={0}
+              icon={Award}
+              color="text-green-500"
+              showValues={valuesVisible}
+              maxValue={Math.max(dailySalesTotal * 1.5, 50000)}
+              animationDelay={700}
+            />
+          </div>
 
           {/* Gráfico de Pizza - Fontes */}
           <Card className="animate-fade-in" style={{ animationDelay: '800ms' }}>
@@ -1245,9 +1278,8 @@ export default function Metrics() {
           </Card>
         </div>
 
-        {/* Estatísticas em Tempo Real e Resumo de Vendas */}
-        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <LiveSalesStats />
+        {/* Resumo de Vendas */}
+        <div className="mt-8">
           <SalesSummary period={parseInt(period.replace('d', '')) || 7} />
         </div>
 

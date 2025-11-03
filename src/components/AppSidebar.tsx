@@ -1,7 +1,6 @@
 
 import { 
   Users, 
-  MessageSquare, 
   Database, 
   BarChart3, 
   Settings,
@@ -11,10 +10,10 @@ import {
   Shield,
   Eye
 } from "lucide-react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useUnreadMessages } from "@/hooks/useUnreadMessages";
-import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 
 import {
   Sidebar,
@@ -30,12 +29,10 @@ import {
 } from "@/components/ui/sidebar";
 
   const mainItems = [
-    { title: "Dashboard", url: "/", icon: BarChart3, hideForRoles: ['supervisor'] },
+    { title: "Metrics", url: "/metrics", icon: Activity },
+    { title: "Pipelines", url: "/pipelines", icon: Target },
     { title: "Leads", url: "/leads", icon: Users, hideForRoles: ['supervisor'] },
     { title: "Lista Geral", url: "/lista-geral", icon: Eye },
-    { title: "Conversations", url: "/conversations", icon: MessageSquare },
-    { title: "Pipelines", url: "/pipelines", icon: Target },
-    { title: "Metrics", url: "/metrics", icon: Activity },
   ];
 
 const settingsItems = [
@@ -49,18 +46,11 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const { hasRole } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
   const currentPath = location.pathname;
   const collapsed = state === "collapsed";
-  const unreadCount = useUnreadMessages();
   
   const isAdmin = hasRole(['admin']);
   const isSupervisor = hasRole(['admin', 'supervisor']);
-
-  // Função para abrir Chatwoot em nova página
-  const handleChatwootClick = () => {
-    navigate('/chatwoot');
-  };
 
   const isActive = (path: string) => {
     if (path === "/") {
@@ -76,7 +66,7 @@ export function AppSidebar() {
 
   return (
       <Sidebar 
-        className={"glass-heavy border-r border-border/30 shadow-2xl overflow-hidden"} 
+        className={"glass-heavy border-r border-border/30 shadow-2xl overflow-hidden transition-all duration-300"} 
         collapsible="icon"
       >
       {/* Gradient overlay mais aparente */}
@@ -85,7 +75,7 @@ export function AppSidebar() {
       
       <div className="relative z-10">
         <div className="p-4 border-b border-primary/20">
-          <div className="flex items-center gap-3">
+          <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
             <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-primary via-accent to-secondary shadow-xl flex items-center justify-center glow-primary overflow-hidden">
               <img 
                 src="/lovable-uploads/55c76384-6a84-4f3a-a555-8b1652907de7.png" 
@@ -94,14 +84,22 @@ export function AppSidebar() {
               />
               <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary/20 to-transparent"></div>
             </div>
-            {!collapsed && (
-              <div className="flex flex-col">
-                <h2 className="font-bold text-lg bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent drop-shadow-sm font-display">
-                  WF Cirúrgicos
-                </h2>
-                <span className="text-xs text-muted-foreground font-medium">CRM & WhatsApp</span>
-              </div>
-            )}
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.div 
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: 'auto' }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col overflow-hidden"
+                >
+                  <h2 className="font-bold text-lg bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent drop-shadow-sm font-display whitespace-nowrap">
+                    WF Cirúrgicos
+                  </h2>
+                  <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">CRM & WhatsApp</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -119,75 +117,61 @@ export function AppSidebar() {
                   })
                   .map((item, index) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink 
-                        to={item.url} 
-                        end={item.url === "/"} 
-                        className={`${getNavClass(isActive(item.url))} 
-                          group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
-                          ${isActive(item.url) ? 
-                            'bg-gradient-to-r from-primary/25 to-accent/15 border border-primary/30 shadow-lg glow-primary' : 
-                            'hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground'
-                          }`}
-                        style={{ animationDelay: `${index * 0.1}s` }}
-                      >
-                        <div className={`p-2 rounded-lg ${isActive(item.url) ? 
-                          'bg-gradient-to-br from-primary via-accent to-secondary shadow-lg' : 
-                          'bg-sidebar-accent/50 group-hover:bg-primary/20'
-                        } transition-all duration-300`}>
-                          <item.icon className={`h-4 w-4 ${isActive(item.url) ? 
-                            'text-primary-foreground' : 
-                            'text-sidebar-foreground group-hover:text-primary'
-                          } transition-colors duration-300`} />
-                        </div>
-                        {!collapsed && (
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className={`font-medium transition-colors duration-300 ${isActive(item.url) ? 
-                              'text-primary' : 
-                              'text-sidebar-foreground group-hover:text-primary'
-                            }`}>
-                              {item.title}
-                            </span>
-                            {item.url === '/conversations' && unreadCount > 0 && (
-                              <Badge variant="destructive" className="h-5 min-w-5 flex items-center justify-center p-1 text-xs">
-                                {unreadCount}
-                              </Badge>
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton asChild>
+                          <NavLink 
+                            to={item.url} 
+                            end={item.url === "/"} 
+                            className={`${getNavClass(isActive(item.url))} 
+                              group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
+                              ${isActive(item.url) ? 
+                                'bg-gradient-to-r from-primary/25 to-accent/15 border border-primary/30 shadow-lg glow-primary' : 
+                                'hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground'
+                              } ${collapsed ? 'w-full justify-center' : ''}`}
+                            style={{ animationDelay: `${index * 0.1}s` }}
+                          >
+                            <div className={`p-2 rounded-lg ${isActive(item.url) ? 
+                              'bg-gradient-to-br from-primary via-accent to-secondary shadow-lg' : 
+                              'bg-sidebar-accent/50 group-hover:bg-primary/20'
+                            } transition-all duration-300`}>
+                              <item.icon className={`h-4 w-4 ${isActive(item.url) ? 
+                                'text-primary-foreground' : 
+                                'text-sidebar-foreground group-hover:text-primary'
+                              } transition-colors duration-300`} />
+                            </div>
+                            <AnimatePresence>
+                              {!collapsed && (
+                                <motion.div 
+                                  initial={{ opacity: 0, width: 0 }}
+                                  animate={{ opacity: 1, width: 'auto' }}
+                                  exit={{ opacity: 0, width: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className="flex items-center gap-2 flex-1 overflow-hidden"
+                                >
+                                  <span className={`font-medium transition-colors duration-300 whitespace-nowrap ${isActive(item.url) ? 
+                                    'text-primary' : 
+                                    'text-sidebar-foreground group-hover:text-primary'
+                                  }`}>
+                                    {item.title}
+                                  </span>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                            {isActive(item.url) && !collapsed && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
                             )}
-                          </div>
-                        )}
-                        {isActive(item.url) && !collapsed && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      {collapsed && (
+                        <TooltipContent side="right" className="ml-2 bg-gray-900 text-white">
+                          {item.title}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                   </SidebarMenuItem>
                 ))}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-
-          {/* Chatwoot Button */}
-          <SidebarGroup className="mb-6">
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    onClick={handleChatwootClick}
-                    className="group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 hover:from-blue-500/30 hover:to-blue-600/30 hover:border-blue-500/50"
-                  >
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
-                      <MessageSquare className="h-4 w-4 text-white" />
-                    </div>
-                    {!collapsed && (
-                      <div className="flex items-center gap-2 flex-1">
-                        <span className="font-medium text-blue-600 group-hover:text-blue-700">
-                          Chatwoot
-                        </span>
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                      </div>
-                    )}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -208,39 +192,56 @@ export function AppSidebar() {
                   })
                   .map((item, index) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild>
-                      <NavLink 
-                        to={item.url} 
-                        className={`${getNavClass(isActive(item.url))} 
-                          group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105
-                          ${isActive(item.url) ? 
-                            'bg-gradient-to-r from-primary/25 to-accent/15 border border-primary/30 shadow-lg glow-primary' : 
-                            'hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground'
-                          }`}
-                        style={{ animationDelay: `${(index + mainItems.length) * 0.1}s` }}
-                      >
-                        <div className={`p-2 rounded-lg ${isActive(item.url) ? 
-                          'bg-gradient-to-br from-primary via-accent to-secondary shadow-lg' : 
-                          'bg-sidebar-accent/50 group-hover:bg-primary/20'
-                        } transition-all duration-300`}>
-                          <item.icon className={`h-4 w-4 ${isActive(item.url) ? 
-                            'text-primary-foreground' : 
-                            'text-sidebar-foreground group-hover:text-primary'
-                          } transition-colors duration-300`} />
-                        </div>
-                        {!collapsed && (
-                          <span className={`font-medium transition-colors duration-300 ${isActive(item.url) ? 
-                            'text-primary' : 
-                            'text-sidebar-foreground group-hover:text-primary'
-                          }`}>
-                            {item.title}
-                          </span>
-                        )}
-                        {isActive(item.url) && !collapsed && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
-                        )}
-                      </NavLink>
-                    </SidebarMenuButton>
+                    <Tooltip delayDuration={0}>
+                      <TooltipTrigger asChild>
+                        <SidebarMenuButton asChild>
+                          <NavLink 
+                            to={item.url} 
+                            className={`${getNavClass(isActive(item.url))} 
+                              group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105
+                              ${isActive(item.url) ? 
+                                'bg-gradient-to-r from-primary/25 to-accent/15 border border-primary/30 shadow-lg glow-primary' : 
+                                'hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground'
+                              } ${collapsed ? 'w-full justify-center' : ''}`}
+                            style={{ animationDelay: `${(index + mainItems.length) * 0.1}s` }}
+                          >
+                            <div className={`p-2 rounded-lg ${isActive(item.url) ? 
+                              'bg-gradient-to-br from-primary via-accent to-secondary shadow-lg' : 
+                              'bg-sidebar-accent/50 group-hover:bg-primary/20'
+                            } transition-all duration-300`}>
+                              <item.icon className={`h-4 w-4 ${isActive(item.url) ? 
+                                'text-primary-foreground' : 
+                                'text-sidebar-foreground group-hover:text-primary'
+                              } transition-colors duration-300`} />
+                            </div>
+                            <AnimatePresence>
+                              {!collapsed && (
+                                <motion.span 
+                                  initial={{ opacity: 0, width: 0 }}
+                                  animate={{ opacity: 1, width: 'auto' }}
+                                  exit={{ opacity: 0, width: 0 }}
+                                  transition={{ duration: 0.3 }}
+                                  className={`font-medium transition-colors duration-300 whitespace-nowrap overflow-hidden ${isActive(item.url) ? 
+                                    'text-primary' : 
+                                    'text-sidebar-foreground group-hover:text-primary'
+                                  }`}
+                                >
+                                  {item.title}
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
+                            {isActive(item.url) && !collapsed && (
+                              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
+                            )}
+                          </NavLink>
+                        </SidebarMenuButton>
+                      </TooltipTrigger>
+                      {collapsed && (
+                        <TooltipContent side="right" className="ml-2 bg-gray-900 text-white">
+                          {item.title}
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

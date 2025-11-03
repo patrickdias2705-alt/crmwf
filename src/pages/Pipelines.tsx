@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Layout } from '@/components/Layout';
 import { KanbanBoard } from '@/components/KanbanBoard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -39,60 +39,12 @@ export default function Pipelines() {
   const { viewingAgentId, isViewingAgent } = useTenantView();
   const [stages, setStages] = useState<Stage[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [salesByLeadId, setSalesByLeadId] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (user?.tenant_id) {
-      console.log('📊 Pipelines - Recarregando dados, forceUpdate:', forceUpdate);
-      loadData();
-    }
-  }, [user?.tenant_id, viewingAgentId, isViewingAgent, forceUpdate]);
-
-  useEffect(() => {
-    if (!user?.tenant_id) return;
-
-    // Subscribe to realtime changes for leads AND stages
-    const leadsChannel = supabase
-      .channel('pipelines-leads-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leads'
-        },
-        (payload) => {
-          console.log('Lead changed:', payload);
-          loadData();
-        }
-      )
-      .subscribe();
-
-    const stagesChannel = supabase
-      .channel('pipelines-stages-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'stages'
-        },
-        (payload) => {
-          console.log('Stage changed:', payload);
-          loadData();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(leadsChannel);
-      supabase.removeChannel(stagesChannel);
-    };
-  }, [user?.tenant_id]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       console.log('📊 Pipelines - Loading for:', { 
         viewingAgentId, 
@@ -133,9 +85,30 @@ export default function Pipelines() {
 
       if (leadsError) throw leadsError;
 
+      // Load sales for these leads
+      const leadIds = (leadsData || []).map(l => l.id);
+      let salesMap: Record<string, number> = {};
+      
+      if (leadIds.length > 0 && effectiveTenantId) {
+        const { data: salesData } = await supabase
+          .from('sales')
+          .select('lead_id, amount')
+          .eq('tenant_id', effectiveTenantId)
+          .in('lead_id', leadIds);
+        
+        if (salesData) {
+          salesMap = salesData.reduce((acc, sale) => {
+            const amount = parseFloat(sale.amount || 0) || 0;
+            acc[sale.lead_id] = (acc[sale.lead_id] || 0) + amount;
+            return acc;
+          }, {} as Record<string, number>);
+        }
+      }
+
       console.log('📊 Pipelines - Dados carregados:', {
         stages: stagesData?.length || 0,
         leads: leadsData?.length || 0,
+        sales: Object.keys(salesMap).length,
         effectiveTenantId
       });
 
@@ -145,13 +118,80 @@ export default function Pipelines() {
         tags: Array.isArray(lead.tags) ? lead.tags : [],
         fields: typeof lead.fields === 'object' ? lead.fields : {}
       })));
+      setSalesByLeadId(salesMap);
     } catch (error) {
       console.error('Error loading pipeline data:', error);
       toast.error('Erro ao carregar dados do pipeline');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.tenant_id, viewingAgentId, isViewingAgent]);
+
+  useEffect(() => {
+    if (user?.tenant_id) {
+      console.log('📊 Pipelines - Recarregando dados, forceUpdate:', forceUpdate);
+      loadData();
+    }
+  }, [user?.tenant_id, viewingAgentId, isViewingAgent, forceUpdate, loadData]);
+
+  useEffect(() => {
+    if (!user?.tenant_id) return;
+
+    // Subscribe to realtime changes for leads AND stages
+    const leadsChannel = supabase
+      .channel('pipelines-leads-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads'
+        },
+        (payload) => {
+          console.log('Lead changed:', payload);
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const stagesChannel = supabase
+      .channel('pipelines-stages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stages'
+        },
+        (payload) => {
+          console.log('Stage changed:', payload);
+          loadData();
+        }
+      )
+      .subscribe();
+
+    const salesChannel = supabase
+      .channel('pipelines-sales-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'sales'
+        },
+        (payload) => {
+          console.log('Sale changed:', payload);
+          loadData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(stagesChannel);
+      supabase.removeChannel(salesChannel);
+    };
+  }, [user?.tenant_id, loadData]);
 
   const handleMoveCard = async (cardId: string, newStageId: string) => {
     // Verificar se o usuário pode mover leads
@@ -203,9 +243,30 @@ export default function Pipelines() {
 
   const getStageStats = (stageId: string) => {
     const stageLeads = leads.filter(lead => lead.stage_id === stageId);
+    
+    // Dinheiro na Mesa: Soma dos orçamentos/propostas que NÃO foram vendidos ainda
+    // Só conta se tem orçamento E não tem venda na tabela sales
+    const dinheiroNaMesa = stageLeads.reduce((acc, lead) => {
+      const budgetAmount = parseFloat(lead.fields?.budget_amount || 0) || 0;
+      const temVenda = salesByLeadId[lead.id] && salesByLeadId[lead.id] > 0;
+      
+      // Só conta se tem orçamento mas NÃO foi vendido ainda
+      if (budgetAmount > 0 && !temVenda) {
+        return acc + budgetAmount;
+      }
+      return acc;
+    }, 0);
+
+    // Dinheiro no Bolso: Soma das vendas fechadas (da tabela sales)
+    const dinheiroNoBolso = stageLeads.reduce((acc, lead) => {
+      return acc + (salesByLeadId[lead.id] || 0);
+    }, 0);
+
     return {
       count: stageLeads.length,
-      value: stageLeads.reduce((acc, lead) => acc + (lead.fields?.value || 0), 0)
+      value: stageLeads.reduce((acc, lead) => acc + (lead.fields?.value || 0), 0),
+      dinheiroNaMesa,
+      dinheiroNoBolso
     };
   };
 

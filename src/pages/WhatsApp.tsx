@@ -3,7 +3,6 @@ import { Layout } from '@/components/Layout';
 import { WhatsAppInterface } from '@/components/WhatsAppInterface';
 import { WhatsAppConnector } from '@/components/WhatsAppConnector';
 import { RealWPPConnect } from '@/components/RealWPPConnect';
-import { ChatwootIntegration } from '@/components/ChatwootIntegration';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,6 @@ export default function WhatsApp() {
   const [instanceId, setInstanceId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showWPPConnect, setShowWPPConnect] = useState(false);
-  const [showChatwoot, setShowChatwoot] = useState(false);
 
   // Verificar status da conexão de forma mais simples
   useEffect(() => {
@@ -78,14 +76,6 @@ export default function WhatsApp() {
           </div>
               <div className="flex items-center gap-3">
                 <Button
-                  onClick={() => setShowChatwoot(true)}
-                  variant="default"
-                  className="flex items-center gap-2"
-                >
-                  <MessageSquare className="h-4 w-4" />
-                  WhatsApp Web
-                </Button>
-                <Button
                   onClick={() => setShowWPPConnect(true)}
                   variant="outline"
                   className="flex items-center gap-2"
@@ -112,12 +102,6 @@ export default function WhatsApp() {
           )}
         </div>
 
-            {/* Modal do Chatwoot */}
-            <ChatwootIntegration
-              isOpen={showChatwoot} 
-              onClose={() => setShowChatwoot(false)} 
-            />
-            
             {/* Modal do WPPConnect (para integração antiga) */}
             <RealWPPConnect
               isOpen={showWPPConnect} 
