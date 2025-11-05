@@ -135,6 +135,100 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === 'resetPassword') {
+      // Resetar senha do usuário
+      if (!userId || !password) {
+        return new Response(JSON.stringify({ error: 'userId e password são obrigatórios' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: updatedUser, error: updateError } = await supabaseClient.auth.admin.updateUserById(
+        userId,
+        {
+          password: password,
+          email_confirm: true
+        }
+      );
+
+      if (updateError) {
+        console.error('Erro ao resetar senha:', updateError);
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Senha resetada com sucesso',
+        user: {
+          id: updatedUser.user.id,
+          email: updatedUser.user.email
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'resetPasswordByEmail') {
+      // Resetar senha pelo email
+      if (!email || !password) {
+        return new Response(JSON.stringify({ error: 'email e password são obrigatórios' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Buscar usuário pelo email
+      const { data: { users }, error: listError } = await supabaseClient.auth.admin.listUsers();
+      
+      if (listError) {
+        return new Response(JSON.stringify({ error: 'Erro ao buscar usuários', details: listError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const user = users.find(u => u.email === email);
+
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Usuário não encontrado' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Resetar senha
+      const { data: updatedUser, error: updateError } = await supabaseClient.auth.admin.updateUserById(
+        user.id,
+        {
+          password: password,
+          email_confirm: true
+        }
+      );
+
+      if (updateError) {
+        console.error('Erro ao resetar senha:', updateError);
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'Senha resetada com sucesso',
+        user: {
+          id: updatedUser.user.id,
+          email: updatedUser.user.email
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ error: 'Ação inválida' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

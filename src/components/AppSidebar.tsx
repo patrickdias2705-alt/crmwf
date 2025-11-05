@@ -8,7 +8,8 @@ import {
   Activity,
   Zap,
   Shield,
-  Eye
+  Eye,
+  MessageCircle
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +33,7 @@ import {
     { title: "Metrics", url: "/metrics", icon: Activity },
     { title: "Pipelines", url: "/pipelines", icon: Target },
     { title: "Leads", url: "/leads", icon: Users, hideForRoles: ['supervisor'] },
+    { title: "Chatwoot", url: "https://crm.wfcirurgicos.com.br/app/accounts/3/dashboard", icon: MessageCircle, external: true },
     { title: "Lista Geral", url: "/lista-geral", icon: Eye },
   ];
 
@@ -120,48 +122,80 @@ export function AppSidebar() {
                     <Tooltip delayDuration={0}>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton asChild>
-                          <NavLink 
-                            to={item.url} 
-                            end={item.url === "/"} 
-                            className={`${getNavClass(isActive(item.url))} 
-                              group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
-                              ${isActive(item.url) ? 
-                                'bg-gradient-to-r from-primary/25 to-accent/15 border border-primary/30 shadow-lg glow-primary' : 
-                                'hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground'
-                              } ${collapsed ? 'w-full justify-center' : ''}`}
-                            style={{ animationDelay: `${index * 0.1}s` }}
-                          >
-                            <div className={`p-2 rounded-lg ${isActive(item.url) ? 
-                              'bg-gradient-to-br from-primary via-accent to-secondary shadow-lg' : 
-                              'bg-sidebar-accent/50 group-hover:bg-primary/20'
-                            } transition-all duration-300`}>
-                              <item.icon className={`h-4 w-4 ${isActive(item.url) ? 
-                                'text-primary-foreground' : 
-                                'text-sidebar-foreground group-hover:text-primary'
-                              } transition-colors duration-300`} />
-                            </div>
-                            <AnimatePresence>
-                              {!collapsed && (
-                                <motion.div 
-                                  initial={{ opacity: 0, width: 0 }}
-                                  animate={{ opacity: 1, width: 'auto' }}
-                                  exit={{ opacity: 0, width: 0 }}
-                                  transition={{ duration: 0.3 }}
-                                  className="flex items-center gap-2 flex-1 overflow-hidden"
-                                >
-                                  <span className={`font-medium transition-colors duration-300 whitespace-nowrap ${isActive(item.url) ? 
-                                    'text-primary' : 
-                                    'text-sidebar-foreground group-hover:text-primary'
-                                  }`}>
-                                    {item.title}
-                                  </span>
-                                </motion.div>
+                          {item.external ? (
+                            <a 
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`${getNavClass(false)} 
+                                group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
+                                hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground
+                                ${collapsed ? 'w-full justify-center' : ''}`}
+                              style={{ animationDelay: `${index * 0.1}s` }}
+                            >
+                              <div className={`p-2 rounded-lg bg-sidebar-accent/50 group-hover:bg-primary/20 transition-all duration-300`}>
+                                <item.icon className={`h-4 w-4 text-sidebar-foreground group-hover:text-primary transition-colors duration-300`} />
+                              </div>
+                              <AnimatePresence>
+                                {!collapsed && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, width: 0 }}
+                                    animate={{ opacity: 1, width: 'auto' }}
+                                    exit={{ opacity: 0, width: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="flex items-center gap-2 flex-1 overflow-hidden"
+                                  >
+                                    <span className={`font-medium transition-colors duration-300 whitespace-nowrap text-sidebar-foreground group-hover:text-primary`}>
+                                      {item.title}
+                                    </span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </a>
+                          ) : (
+                            <NavLink 
+                              to={item.url} 
+                              end={item.url === "/"} 
+                              className={`${getNavClass(isActive(item.url))} 
+                                group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
+                                ${isActive(item.url) ? 
+                                  'bg-gradient-to-r from-primary/25 to-accent/15 border border-primary/30 shadow-lg glow-primary' : 
+                                  'hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground'
+                                } ${collapsed ? 'w-full justify-center' : ''}`}
+                              style={{ animationDelay: `${index * 0.1}s` }}
+                            >
+                              <div className={`p-2 rounded-lg ${isActive(item.url) ? 
+                                'bg-gradient-to-br from-primary via-accent to-secondary shadow-lg' : 
+                                'bg-sidebar-accent/50 group-hover:bg-primary/20'
+                              } transition-all duration-300`}>
+                                <item.icon className={`h-4 w-4 ${isActive(item.url) ? 
+                                  'text-primary-foreground' : 
+                                  'text-sidebar-foreground group-hover:text-primary'
+                                } transition-colors duration-300`} />
+                              </div>
+                              <AnimatePresence>
+                                {!collapsed && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, width: 0 }}
+                                    animate={{ opacity: 1, width: 'auto' }}
+                                    exit={{ opacity: 0, width: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="flex items-center gap-2 flex-1 overflow-hidden"
+                                  >
+                                    <span className={`font-medium transition-colors duration-300 whitespace-nowrap ${isActive(item.url) ? 
+                                      'text-primary' : 
+                                      'text-sidebar-foreground group-hover:text-primary'
+                                    }`}>
+                                      {item.title}
+                                    </span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                              {isActive(item.url) && !collapsed && (
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
                               )}
-                            </AnimatePresence>
-                            {isActive(item.url) && !collapsed && (
-                              <div className="absolute right-3 top-1/2 -translate-y-1/2 w-2 h-2 bg-primary rounded-full animate-pulse" />
-                            )}
-                          </NavLink>
+                            </NavLink>
+                          )}
                         </SidebarMenuButton>
                       </TooltipTrigger>
                       {collapsed && (
