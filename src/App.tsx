@@ -26,6 +26,7 @@ import Database from "./pages/Database";
 import Admin from "./pages/Admin";
 import Supervisor from "./pages/Supervisor";
 import ListaGeral from "./pages/ListaGeral";
+import Chatwoot from "./pages/Chatwoot";
 import NotFound from "./pages/NotFound";
 
 
@@ -189,6 +190,14 @@ const App = () => {
               element={
                 <ProtectedRoute>
                   <ListaGeral />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/chatwoot" 
+              element={
+                <ProtectedRoute>
+                  <Chatwoot />
                 </ProtectedRoute>
               } 
             />

@@ -33,7 +33,7 @@ import {
     { title: "Metrics", url: "/metrics", icon: Activity },
     { title: "Pipelines", url: "/pipelines", icon: Target },
     { title: "Leads", url: "/leads", icon: Users, hideForRoles: ['supervisor'] },
-    { title: "Voltar para WhatsApp", url: "https://crm.wfcirurgicos.com.br/app/accounts/3/dashboard", icon: MessageCircle, external: true },
+    { title: "Voltar para WhatsApp", url: "/chatwoot", icon: MessageCircle },
     { title: "Lista Geral", url: "/lista-geral", icon: Eye },
   ];
 
