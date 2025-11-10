@@ -1052,7 +1052,7 @@ export default function Metrics() {
             owner_user_id,
             id,
             fields,
-            users!leads_owner_user_id_fkey (
+            owner:users!owner_user_id (
               id,
               name,
               email
@@ -1094,7 +1094,7 @@ export default function Metrics() {
           const creatorId = lead.owner_user_id;
           if (!creatorId) return;
           
-          const creator = lead.users;
+          const creator = lead.owner;
           if (!creator) return;
           
           if (!creatorMap.has(creatorId)) {
