@@ -67,20 +67,24 @@ export function AppSidebar() {
       : "hover:bg-sidebar-accent/50";
 
   const handleVoltarWhatsApp = () => {
-    // Define um nome fixo para a aba do Chatwoot
-    const chatwootTabName = 'chatwoot-wf';
-    const accountId = localStorage.getItem("chatwoot_account_id") || "3";
-    const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
-
-    // Tenta encontrar uma aba já aberta com esse nome
-    const existingTab = window.open('', chatwootTabName);
-
-    if (existingTab && !existingTab.closed) {
-      // Se já existir, apenas dá foco nela
-      existingTab.focus();
-    } else {
-      // Se não existir, abre uma nova e dá nome fixo (pra reaproveitar depois)
-      window.open(chatwootUrl, chatwootTabName);
+    // Envia mensagem pro Chatwoot pai (janela onde o CRM está embutido)
+    try {
+      window.parent.postMessage(
+        { action: "abrir_conversas_chatwoot" },
+        "https://crm.wfcirurgicos.com.br"
+      );
+    } catch (error) {
+      // Fallback: se não estiver em iframe, abre em nova aba
+      const accountId = localStorage.getItem("chatwoot_account_id") || "3";
+      const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
+      const chatwootTabName = 'chatwoot-wf';
+      
+      const existingTab = window.open('', chatwootTabName);
+      if (existingTab && !existingTab.closed) {
+        existingTab.focus();
+      } else {
+        window.open(chatwootUrl, chatwootTabName);
+      }
     }
   };
 
