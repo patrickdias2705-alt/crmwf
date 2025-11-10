@@ -67,24 +67,57 @@ export function AppSidebar() {
       : "hover:bg-sidebar-accent/50";
 
   const handleVoltarWhatsApp = () => {
-    // Envia mensagem pro Chatwoot pai (janela onde o CRM está embutido)
-    try {
-      window.parent.postMessage(
-        { action: "abrir_conversas_chatwoot" },
-        "https://crm.wfcirurgicos.com.br"
-      );
-    } catch (error) {
-      // Fallback: se não estiver em iframe, abre em nova aba
-      const accountId = localStorage.getItem("chatwoot_account_id") || "3";
-      const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
-      const chatwootTabName = 'chatwoot-wf';
-      
-      const existingTab = window.open('', chatwootTabName);
-      if (existingTab && !existingTab.closed) {
-        existingTab.focus();
-      } else {
-        window.open(chatwootUrl, chatwootTabName);
+    console.log('🔵 Botão "Voltar para WhatsApp" clicado');
+    
+    const accountId = localStorage.getItem("chatwoot_account_id") || "3";
+    const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
+    const chatwootTabName = 'chatwoot-wf';
+    
+    // Verifica se está em iframe
+    const isInIframe = window.self !== window.top;
+    
+    if (isInIframe) {
+      // Se estiver em iframe, tenta enviar mensagem pro pai
+      try {
+        console.log('📤 Enviando mensagem para janela pai (Chatwoot)...');
+        window.parent.postMessage(
+          { action: "abrir_conversas_chatwoot" },
+          "https://crm.wfcirurgicos.com.br"
+        );
+        console.log('✅ Mensagem enviada com sucesso');
+      } catch (error) {
+        console.error('❌ Erro ao enviar mensagem:', error);
+        // Fallback: abre em nova aba
+        openChatwootTab(chatwootUrl, chatwootTabName);
       }
+    } else {
+      // Se não estiver em iframe, abre diretamente
+      console.log('🌐 Não está em iframe, abrindo Chatwoot diretamente...');
+      openChatwootTab(chatwootUrl, chatwootTabName);
+    }
+  };
+  
+  const openChatwootTab = (url: string, tabName: string) => {
+    // Tenta encontrar uma aba já aberta com esse nome
+    const existingTab = window.open('', tabName);
+    
+    if (existingTab && !existingTab.closed) {
+      // Se já existir, apenas dá foco nela
+      console.log('🔄 Aba Chatwoot já existe, focando...');
+      existingTab.focus();
+      // Tenta atualizar a URL se necessário
+      try {
+        if (existingTab.location.href !== url) {
+          existingTab.location.href = url;
+        }
+      } catch (e) {
+        // Cross-origin error, apenas foca
+        console.log('⚠️ Não foi possível atualizar URL (cross-origin)');
+      }
+    } else {
+      // Se não existir, abre uma nova e dá nome fixo
+      console.log('🆕 Abrindo nova aba Chatwoot...');
+      window.open(url, tabName);
     }
   };
 
