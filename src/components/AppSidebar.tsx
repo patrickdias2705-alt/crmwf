@@ -67,27 +67,20 @@ export function AppSidebar() {
       : "hover:bg-sidebar-accent/50";
 
   const handleVoltarWhatsApp = () => {
+    // Define um nome fixo para a aba do Chatwoot
+    const chatwootTabName = 'chatwoot-wf';
     const accountId = localStorage.getItem("chatwoot_account_id") || "3";
     const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
-    
-    // Verifica se já existe uma aba Chatwoot aberta
-    const existingTab = window.open('', 'chatwootTab');
-    
+
+    // Tenta encontrar uma aba já aberta com esse nome
+    const existingTab = window.open('', chatwootTabName);
+
     if (existingTab && !existingTab.closed) {
-      // Se já existir, só traz pra frente
-      try {
-        existingTab.focus();
-        // Tenta atualizar a URL se necessário (pode dar erro se cross-origin)
-        if (existingTab.location && existingTab.location.href !== chatwootUrl) {
-          existingTab.location.href = chatwootUrl;
-        }
-      } catch (e) {
-        // Se der erro (cross-origin), apenas foca na aba existente
-        existingTab.focus();
-      }
+      // Se já existir, apenas dá foco nela
+      existingTab.focus();
     } else {
-      // Se não existir, abre uma nova aba e dá um nome fixo pra ela
-      window.open(chatwootUrl, 'chatwootTab');
+      // Se não existir, abre uma nova e dá nome fixo (pra reaproveitar depois)
+      window.open(chatwootUrl, chatwootTabName);
     }
   };
 
