@@ -529,6 +529,10 @@ export default function Metrics() {
         throw new Error('Usuário sem tenant_id');
       }
       
+      // Filtrar por usuário se não for admin (mostrar apenas dados do próprio usuário)
+      const isAdmin = user?.role === 'admin' || user?.role === 'supervisor';
+      const filterByUser = !isAdmin && user?.id;
+      
       console.log('📊 [JÚLIO vs MARIA] Iniciando fetchMetrics...', { 
         usuario: user?.email, 
         nome: user?.name,
@@ -538,6 +542,8 @@ export default function Metrics() {
         effectiveTenantId,
         isViewingAgent,
         viewingAgentId,
+        filterByUser,
+        userId: user?.id,
         USUARIO_COMPLETO: user
       });
       setLoading(true);
@@ -554,10 +560,17 @@ export default function Metrics() {
       
       // 1. Tentar buscar da tabela sales PRIMEIRO
       try {
-        const { data: salesData } = await (supabase as any)
+        let salesQuery = (supabase as any)
           .from('sales')
           .select('amount')
           .eq('tenant_id', effectiveTenantId);
+        
+        // Filtrar por usuário se não for admin
+        if (filterByUser) {
+          salesQuery = salesQuery.eq('user_id', user.id);
+        }
+        
+        const { data: salesData } = await salesQuery;
 
         if (salesData && salesData.length > 0) {
           vendasEncontradasNaSales = true;
@@ -580,11 +593,18 @@ export default function Metrics() {
       // 2. Se NÃO encontrou na tabela sales, usar o fallback do fields
       if (!vendasEncontradasNaSales) {
         try {
-          const { data: leadsData } = await (supabase as any)
+          let leadsQuery = (supabase as any)
             .from('leads')
             .select('fields')
             .eq('tenant_id', effectiveTenantId)
             .not('fields->sold', 'is', null);
+          
+          // Filtrar por usuário se não for admin
+          if (filterByUser) {
+            leadsQuery = leadsQuery.eq('owner_user_id', user.id);
+          }
+          
+          const { data: leadsData } = await leadsQuery;
 
           if (leadsData && leadsData.length > 0) {
             const soldLeads = leadsData.filter((lead: any) => 
@@ -614,11 +634,17 @@ export default function Metrics() {
       // Buscar total de leads
       let totalLeadsCount = 0;
       try {
-        // SEMPRE buscar todos os leads do tenant correto (sem filtro por agente)
-        const { count } = await supabase
-        .from('leads')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', effectiveTenantId);
+        let leadsCountQuery = supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', effectiveTenantId);
+        
+        // Filtrar por usuário se não for admin
+        if (filterByUser) {
+          leadsCountQuery = leadsCountQuery.eq('owner_user_id', user.id);
+        }
+        
+        const { count } = await leadsCountQuery;
       
         totalLeadsCount = count || 0;
         console.log('📊 Total de Leads encontrado:', totalLeadsCount, 'para tenant:', effectiveTenantId);
@@ -629,11 +655,17 @@ export default function Metrics() {
       // Buscar mensagens
       let messagesCount = 0;
       try {
-        // SEMPRE buscar todas as mensagens do tenant correto (sem filtro por agente)
-        const { count } = await supabase
-        .from('messages')
+        let messagesQuery = supabase
+          .from('messages')
           .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', effectiveTenantId);
+          .eq('tenant_id', effectiveTenantId);
+        
+        // Filtrar por usuário se não for admin (se a tabela tiver user_id)
+        if (filterByUser) {
+          messagesQuery = messagesQuery.eq('user_id', user.id);
+        }
+        
+        const { count } = await messagesQuery;
       
         messagesCount = count || 0;
         console.log('📊 Total de Mensagens encontrado:', messagesCount, 'para tenant:', effectiveTenantId);
@@ -651,12 +683,18 @@ export default function Metrics() {
         .ilike('name', '%qualificado%');
 
         if (qualifiedStages && qualifiedStages.length > 0) {
-          // SEMPRE buscar todos os qualificados do tenant correto (sem filtro por agente)
-          const { count } = await supabase
-          .from('leads')
-          .select('*', { count: 'exact', head: true })
-          .eq('tenant_id', effectiveTenantId)
+          let qualifiedQuery = supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', effectiveTenantId)
             .in('stage_id', qualifiedStages.map(s => s.id));
+          
+          // Filtrar por usuário se não for admin
+          if (filterByUser) {
+            qualifiedQuery = qualifiedQuery.eq('owner_user_id', user.id);
+          }
+          
+          const { count } = await qualifiedQuery;
 
           qualifiedCount = count || 0;
           console.log('📊 Total de Qualificados encontrado:', qualifiedCount, 'para tenant:', effectiveTenantId);
@@ -670,10 +708,17 @@ export default function Metrics() {
       let openBudgetsValue = 0;
       try {
         // 1. Buscar IDs de leads que já foram marcados como vendidos (tabela sales)
-        const { data: soldLeadIds } = await (supabase as any)
+        let soldLeadIdsQuery = (supabase as any)
           .from('sales')
           .select('lead_id')
           .eq('tenant_id', effectiveTenantId);
+        
+        // Filtrar por usuário se não for admin
+        if (filterByUser) {
+          soldLeadIdsQuery = soldLeadIdsQuery.eq('user_id', user.id);
+        }
+        
+        const { data: soldLeadIds } = await soldLeadIdsQuery;
 
         const soldIds = soldLeadIds?.map(s => s.lead_id) || [];
 
@@ -687,12 +732,18 @@ export default function Metrics() {
         const finalStageIds = finalStages?.map(s => s.id) || [];
       
         // 3. Buscar leads com orçamento
-        // SEMPRE buscar todos os leads com orçamento do tenant correto (sem filtro por agente)
-        const { data: leadsWithBudget } = await supabase
+        let budgetQuery = supabase
           .from('leads')
           .select('id, stage_id, fields')
           .eq('tenant_id', effectiveTenantId)
           .not('fields->budget_amount', 'is', null);
+        
+        // Filtrar por usuário se não for admin
+        if (filterByUser) {
+          budgetQuery = budgetQuery.eq('owner_user_id', user.id);
+        }
+        
+        const { data: leadsWithBudget } = await budgetQuery;
 
         if (leadsWithBudget) {
           // 4. Filtrar apenas os que TÊM orçamento MAS:
@@ -733,12 +784,18 @@ export default function Metrics() {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysBack);
       
-      const { data: metricsDaily } = await supabase
+      let metricsDailyQuery = supabase
         .from('metrics_daily')
         .select('*')
         .eq('tenant_id', effectiveTenantId)
-        .gte('date', startDate.toISOString().split('T')[0])
-        .order('date', { ascending: true });
+        .gte('date', startDate.toISOString().split('T')[0]);
+      
+      // Filtrar por usuário se não for admin (se a tabela tiver user_id)
+      if (filterByUser) {
+        metricsDailyQuery = metricsDailyQuery.eq('user_id', user.id);
+      }
+      
+      const { data: metricsDaily } = await metricsDailyQuery.order('date', { ascending: true });
 
       // Preparar dados do gráfico diário
       let dailyChartData: ChartData[] = [];
@@ -859,12 +916,18 @@ export default function Metrics() {
 
 
       // Buscar todos os leads do período
-      // SEMPRE buscar todos os leads do tenant correto (sem filtro por agente)
-      const result2 = await supabase
+      let leadsPeriodQuery = supabase
         .from('leads')
         .select('id, assigned_to')
         .eq('tenant_id', effectiveTenantId)
         .gte('created_at', new Date(Date.now() - parseInt(period.replace('d', '')) * 24 * 60 * 60 * 1000).toISOString());
+      
+      // Filtrar por usuário se não for admin
+      if (filterByUser) {
+        leadsPeriodQuery = leadsPeriodQuery.eq('owner_user_id', user.id);
+      }
+      
+      const result2 = await leadsPeriodQuery;
 
       const allLeadsData = result2.data || [];
       leadsData = allLeadsData || [];
@@ -925,10 +988,17 @@ export default function Metrics() {
       setLtv(calculatedLtv);
 
       // Buscar leads por origem
-      const { data: leadsBySource } = await supabase
+      let leadsBySourceQuery = supabase
         .from('leads')
         .select('origin')
         .eq('tenant_id', effectiveTenantId);
+      
+      // Filtrar por usuário se não for admin
+      if (filterByUser) {
+        leadsBySourceQuery = leadsBySourceQuery.eq('owner_user_id', user.id);
+      }
+      
+      const { data: leadsBySource } = await leadsBySourceQuery;
       
       const sourceCounts: Record<string, number> = {};
       leadsBySource?.forEach(lead => {
@@ -1045,7 +1115,13 @@ export default function Metrics() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Métricas</h1>
             <p className="text-muted-foreground">
-              Analise o desempenho do seu negócio
+              {user?.name ? (
+                <>
+                  Dados de <span className="font-semibold text-primary">{user.name}</span>
+                </>
+              ) : (
+                'Analise o desempenho do seu negócio'
+              )}
             </p>
           </div>
           
