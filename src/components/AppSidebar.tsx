@@ -67,14 +67,18 @@ export function AppSidebar() {
       : "hover:bg-sidebar-accent/50";
 
   const handleVoltarWhatsApp = () => {
-    console.log('🔵 Botão "Voltar para WhatsApp" clicado');
+    console.log('🔵 Função handleVoltarWhatsApp chamada');
     
     const accountId = localStorage.getItem("chatwoot_account_id") || "3";
     const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
     const chatwootTabName = 'chatwoot-wf';
     
+    console.log('📋 URL do Chatwoot:', chatwootUrl);
+    console.log('📋 Account ID:', accountId);
+    
     // Verifica se está em iframe
     const isInIframe = window.self !== window.top;
+    console.log('🖼️ Está em iframe?', isInIframe);
     
     if (isInIframe) {
       // Se estiver em iframe, tenta enviar mensagem pro pai
@@ -85,6 +89,11 @@ export function AppSidebar() {
           "https://crm.wfcirurgicos.com.br"
         );
         console.log('✅ Mensagem enviada com sucesso');
+        // Aguarda um pouco e se não funcionar, usa fallback
+        setTimeout(() => {
+          console.log('⏱️ Timeout: usando fallback...');
+          openChatwootTab(chatwootUrl, chatwootTabName);
+        }, 500);
       } catch (error) {
         console.error('❌ Erro ao enviar mensagem:', error);
         // Fallback: abre em nova aba
@@ -98,26 +107,44 @@ export function AppSidebar() {
   };
   
   const openChatwootTab = (url: string, tabName: string) => {
+    console.log('🚀 openChatwootTab chamado:', { url, tabName });
+    
     // Tenta encontrar uma aba já aberta com esse nome
-    const existingTab = window.open('', tabName);
+    let existingTab: Window | null = null;
+    try {
+      existingTab = window.open('', tabName);
+    } catch (e) {
+      console.error('❌ Erro ao verificar aba existente:', e);
+    }
     
     if (existingTab && !existingTab.closed) {
       // Se já existir, apenas dá foco nela
       console.log('🔄 Aba Chatwoot já existe, focando...');
-      existingTab.focus();
-      // Tenta atualizar a URL se necessário
       try {
-        if (existingTab.location.href !== url) {
+        existingTab.focus();
+        // Tenta atualizar a URL se necessário
+        if (existingTab.location && existingTab.location.href !== url) {
           existingTab.location.href = url;
         }
+        console.log('✅ Aba focada com sucesso');
       } catch (e) {
         // Cross-origin error, apenas foca
-        console.log('⚠️ Não foi possível atualizar URL (cross-origin)');
+        console.log('⚠️ Não foi possível atualizar URL (cross-origin), apenas focando');
+        existingTab.focus();
       }
     } else {
       // Se não existir, abre uma nova e dá nome fixo
       console.log('🆕 Abrindo nova aba Chatwoot...');
-      window.open(url, tabName);
+      try {
+        const newTab = window.open(url, tabName);
+        if (newTab) {
+          console.log('✅ Nova aba aberta com sucesso');
+        } else {
+          console.error('❌ Falha ao abrir nova aba (pode estar bloqueado pelo navegador)');
+        }
+      } catch (e) {
+        console.error('❌ Erro ao abrir nova aba:', e);
+      }
     }
   };
 
@@ -179,7 +206,13 @@ export function AppSidebar() {
                         <SidebarMenuButton asChild>
                           {item.title === "Voltar para WhatsApp" ? (
                             <button
-                              onClick={handleVoltarWhatsApp}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                console.log('🔴 Botão clicado diretamente!');
+                                handleVoltarWhatsApp();
+                              }}
+                              type="button"
                               className={`${getNavClass(false)} 
                                 group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
                                 hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground
