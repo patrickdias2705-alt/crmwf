@@ -417,6 +417,16 @@ export default function Metrics() {
     totalSold: 0,
     closedLeads: 0
   });
+  
+  // Estatísticas de criação por usuário
+  const [creatorStats, setCreatorStats] = useState<Array<{
+    userId: string;
+    userName: string;
+    userEmail: string;
+    leadsCount: number;
+    salesCount: number;
+    totalRevenue: number;
+  }>>([]);
 
   // Configurações de tráfego pago
   const [trafficSpend, setTrafficSpend] = useState(0); // Investimento em tráfego
@@ -1034,6 +1044,106 @@ export default function Metrics() {
         closedLeads: salesCount
       });
       
+      // Buscar estatísticas de criação por usuário
+      try {
+        let creatorQuery = supabase
+          .from('leads')
+          .select(`
+            owner_user_id,
+            id,
+            fields,
+            users!leads_owner_user_id_fkey (
+              id,
+              name,
+              email
+            )
+          `)
+          .eq('tenant_id', effectiveTenantId);
+        
+        // Filtrar por usuário se não for admin
+        if (filterByUser) {
+          creatorQuery = creatorQuery.eq('owner_user_id', user.id);
+        }
+        
+        const { data: leadsWithCreators } = await creatorQuery;
+        
+        // Buscar vendas por criador
+        let salesByCreatorQuery = (supabase as any)
+          .from('sales')
+          .select('user_id, amount, lead_id')
+          .eq('tenant_id', effectiveTenantId);
+        
+        if (filterByUser) {
+          salesByCreatorQuery = salesByCreatorQuery.eq('user_id', user.id);
+        }
+        
+        const { data: salesByCreator } = await salesByCreatorQuery;
+        
+        // Agrupar por criador
+        const creatorMap = new Map<string, {
+          userId: string;
+          userName: string;
+          userEmail: string;
+          leadsCount: number;
+          salesCount: number;
+          totalRevenue: number;
+        }>();
+        
+        // Processar leads
+        leadsWithCreators?.forEach((lead: any) => {
+          const creatorId = lead.owner_user_id;
+          if (!creatorId) return;
+          
+          const creator = lead.users;
+          if (!creator) return;
+          
+          if (!creatorMap.has(creatorId)) {
+            creatorMap.set(creatorId, {
+              userId: creatorId,
+              userName: creator.name || creator.email || 'Usuário Desconhecido',
+              userEmail: creator.email || '',
+              leadsCount: 0,
+              salesCount: 0,
+              totalRevenue: 0
+            });
+          }
+          
+          const stats = creatorMap.get(creatorId)!;
+          stats.leadsCount++;
+        });
+        
+        // Processar vendas
+        salesByCreator?.forEach((sale: any) => {
+          const creatorId = sale.user_id;
+          if (!creatorId) return;
+          
+          if (!creatorMap.has(creatorId)) {
+            creatorMap.set(creatorId, {
+              userId: creatorId,
+              userName: 'Usuário Desconhecido',
+              userEmail: '',
+              leadsCount: 0,
+              salesCount: 0,
+              totalRevenue: 0
+            });
+          }
+          
+          const stats = creatorMap.get(creatorId)!;
+          stats.salesCount++;
+          stats.totalRevenue += Number(sale.amount) || 0;
+        });
+        
+        // Converter para array e ordenar por leadsCount
+        const statsArray = Array.from(creatorMap.values())
+          .sort((a, b) => b.leadsCount - a.leadsCount);
+        
+        setCreatorStats(statsArray);
+        
+        console.log('📊 Estatísticas de criadores:', statsArray);
+      } catch (error) {
+        console.error('Erro ao buscar estatísticas de criadores:', error);
+      }
+      
       console.log('📊 Métricas carregadas:', {
         totalLeads: totalLeadsCount,
         totalSold,
@@ -1181,6 +1291,57 @@ export default function Metrics() {
           closedLeads={gaugeMetrics.closedLeads}
           showValues={valuesVisible}
         />
+
+        {/* Estatísticas de Criação por Usuário */}
+        {creatorStats.length > 0 && (
+          <Card className="animate-fade-in" style={{ animationDelay: '500ms' }}>
+            <CardHeader>
+              <CardTitle>Dados por Criador</CardTitle>
+              <CardDescription>
+                Estatísticas de quem cadastrou cada dado no sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {creatorStats.map((creator, index) => (
+                  <div
+                    key={creator.userId}
+                    className="p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors"
+                    style={{ animationDelay: `${(index + 1) * 100}ms` }}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <h3 className="font-semibold text-lg">{creator.userName}</h3>
+                        {creator.userEmail && (
+                          <p className="text-sm text-muted-foreground">{creator.userEmail}</p>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="ml-2">
+                        {creator.leadsCount} leads
+                      </Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Leads Cadastrados:</span>
+                        <span className="font-medium">{creator.leadsCount}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Vendas:</span>
+                        <span className="font-medium">{creator.salesCount}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Receita Total:</span>
+                        <span className="font-medium text-green-600">
+                          R$ {creator.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
