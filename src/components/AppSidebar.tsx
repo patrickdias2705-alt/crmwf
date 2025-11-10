@@ -66,6 +66,11 @@ export function AppSidebar() {
       ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium" 
       : "hover:bg-sidebar-accent/50";
 
+  const handleVoltarWhatsApp = () => {
+    const accountId = localStorage.getItem("chatwoot_account_id") || "3";
+    window.location.href = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
+  };
+
   return (
       <Sidebar 
         className={"glass-heavy border-r border-border/30 shadow-2xl overflow-hidden transition-all duration-300"} 
@@ -122,7 +127,35 @@ export function AppSidebar() {
                     <Tooltip delayDuration={0}>
                       <TooltipTrigger asChild>
                         <SidebarMenuButton asChild>
-                          {item.external ? (
+                          {item.title === "Voltar para WhatsApp" ? (
+                            <button
+                              onClick={handleVoltarWhatsApp}
+                              className={`${getNavClass(false)} 
+                                group relative overflow-hidden rounded-xl transition-all duration-300 hover:scale-105 
+                                hover:bg-gradient-to-r hover:from-primary/15 hover:to-accent/10 hover:border hover:border-primary/20 hover:text-foreground
+                                ${collapsed ? 'w-full justify-center' : ''}`}
+                              style={{ animationDelay: `${index * 0.1}s` }}
+                            >
+                              <div className={`p-2 rounded-lg bg-sidebar-accent/50 group-hover:bg-primary/20 transition-all duration-300`}>
+                                <item.icon className={`h-4 w-4 text-sidebar-foreground group-hover:text-primary transition-colors duration-300`} />
+                              </div>
+                              <AnimatePresence>
+                                {!collapsed && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, width: 0 }}
+                                    animate={{ opacity: 1, width: 'auto' }}
+                                    exit={{ opacity: 0, width: 0 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="flex items-center gap-2 flex-1 overflow-hidden"
+                                  >
+                                    <span className={`font-medium transition-colors duration-300 whitespace-nowrap text-sidebar-foreground group-hover:text-primary`}>
+                                      {item.title}
+                                    </span>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </button>
+                          ) : item.external ? (
                             <a 
                               href={item.url}
                               target="_blank"
