@@ -18,6 +18,7 @@ import { ExpandableMetricCard } from '@/components/ExpandableMetricCard';
 import { DashboardGauges, GaugeCard } from '@/components/Metrics';
 import { useTenantView } from '@/contexts/TenantViewContext';
 import { useValuesVisibility } from '@/contexts/ValuesVisibilityContext';
+import { useAgentSelection } from '@/contexts/AgentSelectionContext';
 import { useDailySales } from '@/hooks/useDailySales';
 
 interface MetricCard {
@@ -385,6 +386,7 @@ export default function Metrics() {
   const { user, loading: authLoading } = useAuth();
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
+  const { selectedAgentId, selectedAgentName, agents, setSelectedAgent, isLoadingAgents, isSupervisor } = useAgentSelection();
   const { total: dailySalesTotal, loading: dailySalesLoading } = useDailySales();
   
   // Log inicial do usuário
@@ -478,7 +480,7 @@ export default function Metrics() {
     
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, viewingAgentId, isViewingAgent]);
+  }, [period, viewingAgentId, isViewingAgent, selectedAgentId]);
 
   // Atualização em tempo real
   useEffect(() => {
@@ -539,9 +541,12 @@ export default function Metrics() {
         throw new Error('Usuário sem tenant_id');
       }
       
-      // Filtrar por usuário se não for admin (mostrar apenas dados do próprio usuário)
+      // Determinar qual usuário filtrar
+      // Se for supervisor e tiver agente selecionado, filtra por esse agente
+      // Se não for supervisor ou não tiver agente selecionado, filtra por usuário logado
+      const targetUserId = isSupervisor && selectedAgentId ? selectedAgentId : user?.id;
       const isAdmin = user?.role === 'admin' || user?.role === 'supervisor';
-      const filterByUser = !isAdmin && user?.id;
+      const filterByUser = !isAdmin && targetUserId;
       
       console.log('📊 [JÚLIO vs MARIA] Iniciando fetchMetrics...', { 
         usuario: user?.email, 
@@ -576,8 +581,8 @@ export default function Metrics() {
           .eq('tenant_id', effectiveTenantId);
         
         // Filtrar por usuário se não for admin
-        if (filterByUser) {
-          salesQuery = salesQuery.eq('user_id', user.id);
+        if (filterByUser && targetUserId) {
+          salesQuery = salesQuery.eq('user_id', targetUserId);
         }
         
         const { data: salesData } = await salesQuery;
@@ -610,8 +615,8 @@ export default function Metrics() {
             .not('fields->sold', 'is', null);
           
           // Filtrar por usuário se não for admin
-          if (filterByUser) {
-            leadsQuery = leadsQuery.eq('owner_user_id', user.id);
+          if (filterByUser && targetUserId) {
+            leadsQuery = leadsQuery.eq('owner_user_id', targetUserId);
           }
           
           const { data: leadsData } = await leadsQuery;
@@ -650,8 +655,8 @@ export default function Metrics() {
           .eq('tenant_id', effectiveTenantId);
         
         // Filtrar por usuário se não for admin
-        if (filterByUser) {
-          leadsCountQuery = leadsCountQuery.eq('owner_user_id', user.id);
+        if (filterByUser && targetUserId) {
+          leadsCountQuery = leadsCountQuery.eq('owner_user_id', targetUserId);
         }
         
         const { count } = await leadsCountQuery;
@@ -671,8 +676,8 @@ export default function Metrics() {
           .eq('tenant_id', effectiveTenantId);
         
         // Filtrar por usuário se não for admin (se a tabela tiver user_id)
-        if (filterByUser) {
-          messagesQuery = messagesQuery.eq('user_id', user.id);
+        if (filterByUser && targetUserId) {
+          messagesQuery = messagesQuery.eq('user_id', targetUserId);
         }
         
         const { count } = await messagesQuery;
@@ -700,8 +705,8 @@ export default function Metrics() {
             .in('stage_id', qualifiedStages.map(s => s.id));
           
           // Filtrar por usuário se não for admin
-          if (filterByUser) {
-            qualifiedQuery = qualifiedQuery.eq('owner_user_id', user.id);
+          if (filterByUser && targetUserId) {
+            qualifiedQuery = qualifiedQuery.eq('owner_user_id', targetUserId);
           }
           
           const { count } = await qualifiedQuery;
@@ -724,8 +729,8 @@ export default function Metrics() {
           .eq('tenant_id', effectiveTenantId);
         
         // Filtrar por usuário se não for admin
-        if (filterByUser) {
-          soldLeadIdsQuery = soldLeadIdsQuery.eq('user_id', user.id);
+        if (filterByUser && targetUserId) {
+          soldLeadIdsQuery = soldLeadIdsQuery.eq('user_id', targetUserId);
         }
         
         const { data: soldLeadIds } = await soldLeadIdsQuery;
@@ -749,8 +754,8 @@ export default function Metrics() {
           .not('fields->budget_amount', 'is', null);
         
         // Filtrar por usuário se não for admin
-        if (filterByUser) {
-          budgetQuery = budgetQuery.eq('owner_user_id', user.id);
+        if (filterByUser && targetUserId) {
+          budgetQuery = budgetQuery.eq('owner_user_id', targetUserId);
         }
         
         const { data: leadsWithBudget } = await budgetQuery;
@@ -801,8 +806,8 @@ export default function Metrics() {
         .gte('date', startDate.toISOString().split('T')[0]);
       
       // Filtrar por usuário se não for admin (se a tabela tiver user_id)
-      if (filterByUser) {
-        metricsDailyQuery = metricsDailyQuery.eq('user_id', user.id);
+      if (filterByUser && targetUserId) {
+        metricsDailyQuery = metricsDailyQuery.eq('user_id', targetUserId);
       }
       
       const { data: metricsDaily } = await metricsDailyQuery.order('date', { ascending: true });
@@ -933,8 +938,8 @@ export default function Metrics() {
         .gte('created_at', new Date(Date.now() - parseInt(period.replace('d', '')) * 24 * 60 * 60 * 1000).toISOString());
       
       // Filtrar por usuário se não for admin
-      if (filterByUser) {
-        leadsPeriodQuery = leadsPeriodQuery.eq('owner_user_id', user.id);
+      if (filterByUser && targetUserId) {
+        leadsPeriodQuery = leadsPeriodQuery.eq('owner_user_id', targetUserId);
       }
       
       const result2 = await leadsPeriodQuery;
@@ -1004,8 +1009,8 @@ export default function Metrics() {
         .eq('tenant_id', effectiveTenantId);
       
       // Filtrar por usuário se não for admin
-      if (filterByUser) {
-        leadsBySourceQuery = leadsBySourceQuery.eq('owner_user_id', user.id);
+      if (filterByUser && targetUserId) {
+        leadsBySourceQuery = leadsBySourceQuery.eq('owner_user_id', targetUserId);
       }
       
       const { data: leadsBySource } = await leadsBySourceQuery;
@@ -1061,8 +1066,8 @@ export default function Metrics() {
           .eq('tenant_id', effectiveTenantId);
         
         // Filtrar por usuário se não for admin
-        if (filterByUser) {
-          creatorQuery = creatorQuery.eq('owner_user_id', user.id);
+        if (filterByUser && targetUserId) {
+          creatorQuery = creatorQuery.eq('owner_user_id', targetUserId);
         }
         
         const { data: leadsWithCreators } = await creatorQuery;
@@ -1073,8 +1078,8 @@ export default function Metrics() {
           .select('user_id, amount, lead_id')
           .eq('tenant_id', effectiveTenantId);
         
-        if (filterByUser) {
-          salesByCreatorQuery = salesByCreatorQuery.eq('user_id', user.id);
+        if (filterByUser && targetUserId) {
+          salesByCreatorQuery = salesByCreatorQuery.eq('user_id', targetUserId);
         }
         
         const { data: salesByCreator } = await salesByCreatorQuery;
@@ -1225,7 +1230,11 @@ export default function Metrics() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Métricas</h1>
             <p className="text-muted-foreground">
-              {user?.name ? (
+              {selectedAgentName ? (
+                <>
+                  Dados de <span className="font-semibold text-primary">{selectedAgentName}</span>
+                </>
+              ) : user?.name ? (
                 <>
                   Dados de <span className="font-semibold text-primary">{user.name}</span>
                 </>
@@ -1236,6 +1245,28 @@ export default function Metrics() {
           </div>
           
           <div className="flex items-center gap-2">
+            {/* Dropdown para Supervisores */}
+            {isSupervisor && (
+              <Select
+                value={selectedAgentId || ''}
+                onValueChange={(value) => {
+                  const agent = agents.find(a => a.id === value);
+                  setSelectedAgent(value || null, agent?.name || null);
+                }}
+              >
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder={isLoadingAgents ? "Carregando agentes..." : "Todos os agentes"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Todos os agentes</SelectItem>
+                  {agents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button 
               variant="outline" 
               size="sm"

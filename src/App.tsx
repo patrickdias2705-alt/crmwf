@@ -12,6 +12,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { TenantViewProvider } from "@/contexts/TenantViewContext";
 import { ValuesVisibilityProvider } from "@/contexts/ValuesVisibilityContext";
+import { AgentSelectionProvider } from "@/contexts/AgentSelectionContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Leads from "./pages/Leads";
@@ -89,8 +90,9 @@ const App = () => {
       <ThemeProvider>
         <AuthProvider>
           <TenantViewProvider>
-            <ValuesVisibilityProvider>
-              <RealtimeProvider>
+            <AgentSelectionProvider>
+              <ValuesVisibilityProvider>
+                <RealtimeProvider>
                 <TooltipProvider>
                 <div className="min-h-screen bg-background text-foreground">
                   <Toaster />
@@ -223,8 +225,9 @@ const App = () => {
           </BrowserRouter>
         </div>
       </TooltipProvider>
-    </RealtimeProvider>
-    </ValuesVisibilityProvider>
+              </RealtimeProvider>
+              </ValuesVisibilityProvider>
+            </AgentSelectionProvider>
         </TenantViewProvider>
         </AuthProvider>
         </ThemeProvider>
