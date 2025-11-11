@@ -386,7 +386,28 @@ export default function Metrics() {
   const { user, loading: authLoading } = useAuth();
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
-  const { selectedAgentId, selectedAgentName, agents, setSelectedAgent, isLoadingAgents, isSupervisor } = useAgentSelection();
+  
+  // Usar useAgentSelection com tratamento de erro
+  let selectedAgentId: string | null = null;
+  let selectedAgentName: string | null = null;
+  let agents: Array<{ id: string; name: string; email: string }> = [];
+  let setSelectedAgent: (agentId: string | null, agentName?: string | null) => void = () => {};
+  let isLoadingAgents = false;
+  let isSupervisor = false;
+  
+  try {
+    const agentSelection = useAgentSelection();
+    selectedAgentId = agentSelection.selectedAgentId;
+    selectedAgentName = agentSelection.selectedAgentName;
+    agents = agentSelection.agents;
+    setSelectedAgent = agentSelection.setSelectedAgent;
+    isLoadingAgents = agentSelection.isLoadingAgents;
+    isSupervisor = agentSelection.isSupervisor;
+  } catch (error) {
+    console.warn('⚠️ AgentSelectionContext não disponível:', error);
+    // Valores padrão já definidos acima
+  }
+  
   const { total: dailySalesTotal, loading: dailySalesLoading } = useDailySales();
   
   // Log inicial do usuário
