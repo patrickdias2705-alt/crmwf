@@ -535,6 +535,12 @@ export default function Metrics() {
 
   const fetchMetrics = async () => {
     try {
+      // Verificar se o usuário está carregado
+      if (authLoading || !user) {
+        console.log('⏳ Aguardando carregamento do usuário...');
+        return;
+      }
+      
       // Usar o tenant_id do usuário logado
       const effectiveTenantId = user?.tenant_id;
       
