@@ -70,8 +70,8 @@ export function AppSidebar() {
     console.log('🔵 Botão "Voltar para WhatsApp" clicado');
     
     const accountId = localStorage.getItem("chatwoot_account_id") || "3";
-    // Usar /inbox-view ao invés de /dashboard para ir direto nas conversas
-    const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/inbox-view`;
+    // Usar /dashboard que é a página principal do Chatwoot (mais estável)
+    const chatwootUrl = `https://crm.wfcirurgicos.com.br/app/accounts/${accountId}/dashboard`;
     
     console.log('📋 Redirecionando para:', chatwootUrl);
     
