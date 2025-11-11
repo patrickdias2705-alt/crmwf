@@ -35,8 +35,14 @@ export function AgentSelectionProvider({ children }: { children: React.ReactNode
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(false);
   
-  // Verificar se é supervisor de forma segura
-  const isSupervisor = !authLoading && user ? hasRole(['supervisor', 'admin']) : false;
+  // Verificar se é supervisor de forma segura - evitar erro se hasRole não estiver disponível
+  let isSupervisor = false;
+  try {
+    isSupervisor = !authLoading && user ? hasRole(['supervisor', 'admin']) : false;
+  } catch (error) {
+    console.warn('⚠️ Erro ao verificar role:', error);
+    isSupervisor = false;
+  }
 
   // Carregar lista de agentes quando for supervisor
   useEffect(() => {

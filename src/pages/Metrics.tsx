@@ -387,6 +387,7 @@ export default function Metrics() {
   const { viewingTenantId, viewingAgentId, isViewingAgent } = useTenantView();
   const { valuesVisible, toggleValuesVisibility } = useValuesVisibility();
   
+  // Usar useAgentSelection - o contexto deve estar disponível pois está no App.tsx
   const { selectedAgentId, selectedAgentName, agents, setSelectedAgent, isLoadingAgents, isSupervisor } = useAgentSelection();
   
   const { total: dailySalesTotal, loading: dailySalesLoading } = useDailySales();
