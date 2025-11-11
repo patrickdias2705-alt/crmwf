@@ -41,7 +41,9 @@ export function AgentSelectionProvider({ children }: { children: React.ReactNode
   // Carregar lista de agentes quando for supervisor
   useEffect(() => {
     // Aguardar autenticação carregar
-    if (authLoading) return;
+    if (authLoading || !user) {
+      return;
+    }
     
     if (isSupervisor && user?.tenant_id) {
       loadAgents();
@@ -50,7 +52,7 @@ export function AgentSelectionProvider({ children }: { children: React.ReactNode
       setSelectedAgentId(null);
       setSelectedAgentName(null);
     }
-  }, [isSupervisor, user?.tenant_id, authLoading]);
+  }, [isSupervisor, user?.tenant_id, authLoading, user]);
 
   const loadAgents = async () => {
     if (!user?.tenant_id) {
