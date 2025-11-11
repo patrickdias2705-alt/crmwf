@@ -28,16 +28,20 @@ export function useAgentSelection() {
 }
 
 export function AgentSelectionProvider({ children }: { children: React.ReactNode }) {
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, loading: authLoading } = useAuth();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [selectedAgentName, setSelectedAgentName] = useState<string | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoadingAgents, setIsLoadingAgents] = useState(false);
   
-  const isSupervisor = hasRole(['supervisor', 'admin']);
+  // Verificar se é supervisor de forma segura
+  const isSupervisor = !authLoading && user ? hasRole(['supervisor', 'admin']) : false;
 
   // Carregar lista de agentes quando for supervisor
   useEffect(() => {
+    // Aguardar autenticação carregar
+    if (authLoading) return;
+    
     if (isSupervisor && user?.tenant_id) {
       loadAgents();
     } else {
@@ -45,7 +49,7 @@ export function AgentSelectionProvider({ children }: { children: React.ReactNode
       setSelectedAgentId(null);
       setSelectedAgentName(null);
     }
-  }, [isSupervisor, user?.tenant_id]);
+  }, [isSupervisor, user?.tenant_id, authLoading]);
 
   const loadAgents = async () => {
     if (!user?.tenant_id) return;
