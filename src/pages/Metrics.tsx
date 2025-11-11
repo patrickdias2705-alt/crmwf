@@ -1284,20 +1284,33 @@ export default function Metrics() {
               <Select
                 value={selectedAgentId || ''}
                 onValueChange={(value) => {
-                  const agent = agents.find(a => a.id === value);
-                  setSelectedAgent(value || null, agent?.name || null);
+                  try {
+                    const agent = agents.find(a => a.id === value);
+                    setSelectedAgent(value || null, agent?.name || null);
+                  } catch (error) {
+                    console.error('❌ Erro ao selecionar agente:', error);
+                  }
                 }}
+                disabled={isLoadingAgents}
               >
                 <SelectTrigger className="w-[250px]">
                   <SelectValue placeholder={isLoadingAgents ? "Carregando agentes..." : "Todos os agentes"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Todos os agentes</SelectItem>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.name}
-                    </SelectItem>
-                  ))}
+                  {agents && agents.length > 0 ? (
+                    agents.map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    !isLoadingAgents && (
+                      <SelectItem value="" disabled>
+                        Nenhum agente encontrado
+                      </SelectItem>
+                    )
+                  )}
                 </SelectContent>
               </Select>
             )}
