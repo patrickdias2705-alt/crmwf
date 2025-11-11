@@ -1201,6 +1201,21 @@ export default function Metrics() {
     );
   }
 
+  // Verificar se está carregando a autenticação
+  if (authLoading) {
+    console.log('📊 Aguardando autenticação...');
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-muted-foreground">Verificando autenticação...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   // Verificar se o usuário está autenticado
   if (!user) {
     console.log('📊 Usuário não autenticado, redirecionando...');
