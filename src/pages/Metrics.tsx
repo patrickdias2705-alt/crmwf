@@ -546,8 +546,10 @@ export default function Metrics() {
       // Determinar qual usuário filtrar
       // Se for supervisor e tiver agente selecionado, filtra por esse agente
       // Se não for supervisor ou não tiver agente selecionado, filtra por usuário logado
-      const targetUserId = isSupervisor && selectedAgentId ? selectedAgentId : user?.id;
+      // IMPORTANTE: Supervisores SEM agente selecionado veem TODOS os dados (não filtra)
+      const targetUserId = isSupervisor && selectedAgentId ? selectedAgentId : (isSupervisor ? null : user?.id);
       const isAdmin = user?.role === 'admin' || user?.role === 'supervisor';
+      // Supervisores só filtram se tiverem um agente específico selecionado
       const filterByUser = !isAdmin && targetUserId;
       
       console.log('📊 [JÚLIO vs MARIA] Iniciando fetchMetrics...', { 
