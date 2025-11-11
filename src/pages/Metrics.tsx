@@ -472,17 +472,25 @@ export default function Metrics() {
   }, []);
 
   useEffect(() => {
+    // Aguardar autenticação e contexto estarem prontos
+    if (authLoading || !user) {
+      console.log('⏳ Metrics: Aguardando autenticação...');
+      return;
+    }
+    
     // Sempre carregar métricas usando o tenant_id do usuário logado
     fetchMetrics();
     
     // Atualizar métricas a cada 60 segundos
     const interval = setInterval(() => {
-      fetchMetrics();
+      if (!authLoading && user) {
+        fetchMetrics();
+      }
     }, 60000);
     
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, viewingAgentId, isViewingAgent, selectedAgentId]);
+  }, [period, viewingAgentId, isViewingAgent, selectedAgentId, authLoading, user]);
 
   // Atualização em tempo real
   useEffect(() => {
