@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface Agent {
   id: string;
@@ -52,10 +53,14 @@ export function AgentSelectionProvider({ children }: { children: React.ReactNode
   }, [isSupervisor, user?.tenant_id, authLoading]);
 
   const loadAgents = async () => {
-    if (!user?.tenant_id) return;
+    if (!user?.tenant_id) {
+      console.warn('⚠️ AgentSelectionContext: Tentando carregar agentes sem tenant_id');
+      return;
+    }
     
     setIsLoadingAgents(true);
     try {
+      console.log('📋 Carregando agentes para tenant:', user.tenant_id);
       const { data, error } = await supabase
         .from('users')
         .select('id, name, email')
@@ -65,14 +70,17 @@ export function AgentSelectionProvider({ children }: { children: React.ReactNode
         .order('name');
 
       if (error) {
-        console.error('Erro ao carregar agentes:', error);
+        console.error('❌ Erro ao carregar agentes:', error);
         setAgents([]);
+        toast.error('Erro ao carregar lista de agentes');
       } else {
+        console.log('✅ Agentes carregados:', data?.length || 0);
         setAgents(data || []);
       }
-    } catch (error) {
-      console.error('Erro ao carregar agentes:', error);
+    } catch (error: any) {
+      console.error('❌ Erro ao carregar agentes:', error);
       setAgents([]);
+      toast.error('Erro ao carregar lista de agentes');
     } finally {
       setIsLoadingAgents(false);
     }
