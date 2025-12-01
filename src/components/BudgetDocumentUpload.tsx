@@ -113,7 +113,7 @@ export function BudgetDocumentUpload({
             .select('tenant_id')
             .eq('id', leadId)
             .single();
-
+          
           if (!leadData?.tenant_id && !user?.tenant_id) {
             throw new Error('Tenant ID não encontrado');
           }
@@ -167,13 +167,13 @@ export function BudgetDocumentUpload({
           if (isRepurchase) {
             console.log('🔄 Atualizando lead para "carteirizado" (recompra)...');
             const { error: originError } = await supabase
-              .from('leads')
-              .update({ 
+            .from('leads')
+            .update({ 
                 origin: 'carteirizado',
                 updated_at: new Date().toISOString()
-              })
-              .eq('id', leadId);
-            
+            })
+            .eq('id', leadId);
+
             if (originError) {
               console.error('⚠️ Erro ao atualizar origem para carteirizado:', originError);
             } else {
@@ -348,18 +348,18 @@ export function BudgetDocumentUpload({
       <div className="flex items-center gap-2">
         {/* Mostrar botão para adicionar novo orçamento apenas se não for controlado externamente (recompra) */}
         {!isRepurchase && (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={fetchDocuments}
-              >
-                <Upload className="h-4 w-4 mr-2" />
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={fetchDocuments}
+            >
+              <Upload className="h-4 w-4 mr-2" />
                 {hasOpenBudget ? 'Adicionar Orçamento' : 'Enviar Orçamento'}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {isRepurchase 
@@ -442,7 +442,7 @@ export function BudgetDocumentUpload({
                             <span className="text-2xl">{getFileIcon(doc.file_name)}</span>
                             <div>
                               <div className="flex items-center gap-2">
-                                <div className="font-medium">{doc.description}</div>
+                              <div className="font-medium">{doc.description}</div>
                                 {index === 0 && (
                                   <Badge variant="default" className="text-xs">Mais Recente</Badge>
                                 )}
@@ -492,8 +492,8 @@ export function BudgetDocumentUpload({
               </div>
             )}
           </DialogContent>
-          </Dialog>
-        )}
+        </Dialog>
+      )}
         
         {/* Se for recompra, sempre mostrar o dialog (controlado externamente) */}
         {isRepurchase && (

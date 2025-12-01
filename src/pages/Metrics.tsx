@@ -333,12 +333,12 @@ export default function Metrics() {
               amount: openBudgetsData[0].amount,
               tenant_id: openBudgetsData[0].tenant_id,
               status: openBudgetsData[0].status
-            });
-            
+          });
+
             openBudgetsCount = openBudgetsData.length;
             openBudgetsValue = openBudgetsData.reduce((sum: number, budget: any) => 
               sum + Number(budget.amount || 0), 0
-            );
+          );
           } else {
             console.warn('⚠️ [Metrics] Nenhum orçamento retornado (pode ser RLS bloqueando)');
           }
