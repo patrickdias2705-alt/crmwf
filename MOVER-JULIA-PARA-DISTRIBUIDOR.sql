@@ -155,7 +155,7 @@ BEGIN
         -- Mover orçamentos da Julia
         UPDATE public.budget_documents
         SET tenant_id = distribuidor_tenant_id
-        WHERE created_by = julia_user_id
+        WHERE uploaded_by = julia_user_id
           AND tenant_id != distribuidor_tenant_id;
         
         -- Mover vendas da Julia
