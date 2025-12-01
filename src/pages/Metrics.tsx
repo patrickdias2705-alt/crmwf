@@ -195,6 +195,16 @@ export default function Metrics() {
     try {
       setLoading(true);
 
+      // Verificar autenticação antes de fazer queries
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error('❌ [Metrics] Erro de autenticação:', sessionError);
+        console.error('❌ [Metrics] Session:', session);
+        toast.error('Erro de autenticação. Por favor, faça login novamente.');
+        return;
+      }
+      console.log('✅ [Metrics] Usuário autenticado:', session.user.id);
+
       // Buscar vendas da tabela sales + fallback do fields
       let totalSold = 0;
       let avgTicket = 0;
@@ -292,27 +302,52 @@ export default function Metrics() {
       let openBudgetsCount = 0;
       let openBudgetsValue = 0;
       try {
+        console.log('🔍 [Metrics] Buscando orçamentos em aberto...');
+        console.log('👤 [Metrics] User:', user?.id, 'Tenant:', user?.tenant_id);
+        
         // Buscar orçamentos com status 'aberto' da tabela budget_documents
         // RLS já filtra por tenant automaticamente, não precisa do .eq('tenant_id')
-        const { data: openBudgetsData, error: openBudgetsError } = await (supabase as any)
+        const { data: openBudgetsData, error: openBudgetsError, count } = await (supabase as any)
           .from('budget_documents')
-          .select('id, amount, lead_id')
+          .select('id, amount, lead_id, tenant_id, status', { count: 'exact' })
           .eq('status', 'aberto');
 
         if (openBudgetsError) {
-          console.error('❌ Erro ao buscar orçamentos da tabela:', openBudgetsError);
+          console.error('❌ [Metrics] Erro ao buscar orçamentos da tabela:', openBudgetsError);
+          console.error('📋 [Metrics] Detalhes do erro:', {
+            message: openBudgetsError.message,
+            details: openBudgetsError.details,
+            hint: openBudgetsError.hint,
+            code: openBudgetsError.code
+          });
           openBudgetsCount = 0;
           openBudgetsValue = 0;
-        } else if (openBudgetsData) {
-          openBudgetsCount = openBudgetsData.length;
-          openBudgetsValue = openBudgetsData.reduce((sum: number, budget: any) => 
-            sum + Number(budget.amount || 0), 0
-          );
+        } else {
+          console.log('✅ [Metrics] Query executada com sucesso');
+          console.log('📊 [Metrics] Count retornado:', count);
+          console.log('📊 [Metrics] Data retornado:', openBudgetsData?.length || 0, 'registros');
+          
+          if (openBudgetsData && openBudgetsData.length > 0) {
+            console.log('📋 [Metrics] Primeiro orçamento:', {
+              id: openBudgetsData[0].id,
+              amount: openBudgetsData[0].amount,
+              tenant_id: openBudgetsData[0].tenant_id,
+              status: openBudgetsData[0].status
+            });
+            
+            openBudgetsCount = openBudgetsData.length;
+            openBudgetsValue = openBudgetsData.reduce((sum: number, budget: any) => 
+              sum + Number(budget.amount || 0), 0
+            );
+          } else {
+            console.warn('⚠️ [Metrics] Nenhum orçamento retornado (pode ser RLS bloqueando)');
+          }
         }
 
-        console.log('💼 Orçamentos em aberto:', openBudgetsCount, 'valor:', openBudgetsValue);
-      } catch (error) {
-        console.error('Erro ao buscar orçamentos em aberto:', error);
+        console.log('💼 [Metrics] Orçamentos em aberto:', openBudgetsCount, 'valor:', openBudgetsValue);
+      } catch (error: any) {
+        console.error('❌ [Metrics] Erro ao buscar orçamentos em aberto:', error);
+        console.error('📋 [Metrics] Stack:', error?.stack);
       }
 
       const conversionRate = totalLeadsCount > 0 ? (salesCount / totalLeadsCount) * 100 : 0;
