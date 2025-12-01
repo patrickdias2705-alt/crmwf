@@ -66,25 +66,25 @@ export default function Leads() {
         return;
       }
 
-      let query = supabase
-        .from('leads')
-        .select(`
-          id,
-          name,
-          phone,
-          email,
-          source,
-          created_at,
-          stage_id,
-          assigned_to,
-          is_public,
-          order_number,
-          fields,
-          stages (
-            name
-          )
-        `)
-        .eq('tenant_id', user?.tenant_id);
+            let query = supabase
+              .from('leads')
+              .select(`
+                id,
+                name,
+                phone,
+                email,
+                source,
+                created_at,
+                stage_id,
+                assigned_to,
+                is_public,
+                order_number,
+                fields,
+                stages (
+                  name
+                )
+              `)
+              .eq('tenant_id', user?.tenant_id);
 
       // Filter by agent if viewing specific agent
       if (isViewingAgent && viewingAgentId) {
@@ -105,6 +105,7 @@ export default function Leads() {
       
       if (leadIds.length > 0) {
         try {
+          console.log('🔍 Buscando orçamentos para', leadIds.length, 'leads');
           const { data: budgetDocsData, error: budgetError } = await supabase
             .from('budget_documents')
             .select('lead_id')
@@ -112,7 +113,13 @@ export default function Leads() {
             .eq('status', 'aberto'); // Apenas orçamentos em aberto
 
           if (budgetError) {
-            console.log('⚠️ Erro ao buscar orçamentos da tabela (pode não existir ainda):', budgetError.message);
+            console.error('❌ Erro ao buscar orçamentos da tabela:', budgetError);
+            console.error('📋 Detalhes:', {
+              message: budgetError.message,
+              details: budgetError.details,
+              hint: budgetError.hint,
+              code: budgetError.code
+            });
             // Fallback: buscar dos fields do lead
             leadsWithBudgets = new Set(
               data?.filter((lead: any) => 
@@ -122,6 +129,7 @@ export default function Leads() {
               ).map((l: any) => l.id) || []
             );
           } else {
+            console.log('✅ Orçamentos encontrados:', budgetDocsData?.length || 0);
             leadsWithBudgets = new Set(budgetDocsData?.map(b => b.lead_id) || []);
           }
         } catch (error: any) {

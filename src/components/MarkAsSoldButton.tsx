@@ -28,7 +28,7 @@ export function MarkAsSoldButton({
   const checkStatus = async () => {
     // Verificar se tem venda
     const { data: sales } = await supabase
-      .from('sales')
+        .from('sales')
       .select('id')
       .eq('lead_id', leadId)
       .limit(1);
@@ -49,9 +49,9 @@ export function MarkAsSoldButton({
       setIsSold(hasSale && (!budgetDocs || budgetDocs.length === 0));
     } else {
       setIsSold(false);
-    }
-  };
-
+      }
+    };
+    
   // Verificar status ao montar e quando leadId muda
   useEffect(() => {
     if (leadId) {
@@ -251,7 +251,7 @@ export function MarkAsSoldButton({
               return;
             } else {
               console.log('✅ Orçamento apagado da tabela budget_documents (dados preservados em sales)');
-            }
+      }
           }
         }
       } catch (error: any) {
@@ -264,7 +264,7 @@ export function MarkAsSoldButton({
       if (!saleCreated) {
         console.error('❌ Não foi possível criar a venda');
         toast.error('Erro ao registrar venda. Tente novamente.');
-        return;
+          return;
       }
 
       // Criar evento de venda
@@ -312,15 +312,15 @@ export function MarkAsSoldButton({
   if (isSold) {
     return (
       <>
-        <Button 
-          size="sm" 
+      <Button 
+        size="sm" 
           variant="outline"
           onClick={() => setShowRepurchaseDialog(true)}
           className="border-green-600 text-green-600 hover:bg-green-50"
-        >
+      >
           <RefreshCw className="h-4 w-4 mr-2" />
           Nova Recompra
-        </Button>
+      </Button>
         
         <BudgetDocumentUpload
           leadId={leadId}
