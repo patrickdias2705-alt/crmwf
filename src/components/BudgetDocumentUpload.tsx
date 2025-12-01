@@ -214,7 +214,10 @@ export function BudgetDocumentUpload({
     try {
       const documentsList: BudgetDocument[] = [];
       
+      console.log('🔍 Buscando orçamentos para lead:', leadId);
+      
       // Buscar APENAS da tabela budget_documents
+      // RLS já filtra por tenant automaticamente, não precisa do .eq('tenant_id')
       const { data: budgetDocs, error: budgetDocsError } = await supabase
         .from('budget_documents')
         .select('*')
@@ -223,10 +226,18 @@ export function BudgetDocumentUpload({
 
       if (budgetDocsError) {
         console.error('❌ Erro ao buscar da tabela budget_documents:', budgetDocsError);
+        console.error('📋 Detalhes do erro:', {
+          message: budgetDocsError.message,
+          details: budgetDocsError.details,
+          hint: budgetDocsError.hint,
+          code: budgetDocsError.code
+        });
         toast.error('Erro ao carregar orçamentos: ' + budgetDocsError.message);
         setDocuments([]);
         return;
       }
+
+      console.log('📊 Orçamentos encontrados:', budgetDocs?.length || 0);
 
       if (budgetDocs && budgetDocs.length > 0) {
         // Buscar IDs únicos de vendedores

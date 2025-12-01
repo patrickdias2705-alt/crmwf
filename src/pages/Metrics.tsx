@@ -293,10 +293,10 @@ export default function Metrics() {
       let openBudgetsValue = 0;
       try {
         // Buscar orçamentos com status 'aberto' da tabela budget_documents
+        // RLS já filtra por tenant automaticamente, não precisa do .eq('tenant_id')
         const { data: openBudgetsData, error: openBudgetsError } = await (supabase as any)
           .from('budget_documents')
           .select('id, amount, lead_id')
-          .eq('tenant_id', user?.tenant_id)
           .eq('status', 'aberto');
 
         if (openBudgetsError) {
