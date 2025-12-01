@@ -1,0 +1,56 @@
+services:
+  # Navegador dedicado para WhatsApp Web
+  whatsapp-browser:
+    image: browserless/chrome:latest
+    container_name: whatsapp-browser
+    environment:
+      - PREBOOT_CHROME=true
+      - KEEP_ALIVE=true
+      - CHROME_REFRESH_TIME=300000
+      - MAX_CONCURRENT_SESSIONS=1
+      - TOKEN=whatsapp123
+      - BLOCK_ADS=true
+      - DISABLE_DEV_SHM_USAGE=true
+      - NO_SANDBOX=true
+    volumes:
+      - ./chrome-data:/app/data
+    ports:
+      - "3000:3000" # Navegador dedicado
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+  # Servidor de autenticação JWT
+  auth-server:
+    build: ./auth-server
+    container_name: whatsapp-auth
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+  # Gateway Nginx com proxy para navegador dedicado
+  gateway:
+    image: nginx:alpine
+    container_name: whatsapp-gateway
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "443:443"
+      - "80:80"
+    depends_on:
+      - whatsapp-browser
+      - auth-server
+    restart: unless-stopped
+    networks:
+      - whatsapp-network
+
+networks:
+  whatsapp-network:
+    driver: bridge
+
+volumes:
+  chrome-profiles:
+  chrome-data:

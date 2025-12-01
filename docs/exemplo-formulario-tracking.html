@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Formulário com Tracking Automático</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .tracking-info {
+            background: #f7fafc;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 12px;
+        }
+
+        .tracking-info h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .tracking-info p {
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .tracking-info strong {
+            color: #333;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📝 Fale Conosco</h1>
+        <p class="subtitle">Preencha o formulário abaixo e entraremos em contato</p>
+
+        <div id="successMessage" class="success-message">
+            ✅ Obrigado! Recebemos sua mensagem e entraremos em contato em breve.
+        </div>
+
+        <div id="errorMessage" class="error-message">
+            ❌ Erro ao enviar. Por favor, tente novamente.
+        </div>
+
+        <!-- Info de tracking (apenas para demonstração, remova em produção) -->
+        <div class="tracking-info" id="trackingInfo">
+            <h3>🎯 Tracking Detectado</h3>
+            <div id="trackingDetails">
+                <p><strong>Origem:</strong> <span id="detectedSource">Não detectada</span></p>
+                <p><strong>Campanha:</strong> <span id="detectedCampaign">N/A</span></p>
+            </div>
+        </div>
+
+        <form id="leadForm">
+            <div class="form-group">
+                <label for="name">Nome Completo *</label>
+                <input type="text" id="name" name="name" required placeholder="Seu nome">
+            </div>
+
+            <div class="form-group">
+                <label for="phone">Telefone/WhatsApp *</label>
+                <input type="tel" id="phone" name="phone" required placeholder="(11) 99999-9999">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" placeholder="seu@email.com">
+            </div>
+
+            <div class="form-group">
+                <label for="message">Mensagem</label>
+                <textarea id="message" name="message" placeholder="Como podemos ajudar?"></textarea>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                Enviar Mensagem
+            </button>
+        </form>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO - ALTERE ESTES VALORES
+        // ==========================================
+        const CONFIG = {
+            SUPABASE_URL: 'https://seu-projeto.supabase.co',
+            SUPABASE_ANON_KEY: 'sua-chave-anon-aqui',
+            TENANT_ID: 'seu-tenant-id-aqui'
+        };
+
+        // ==========================================
+        // FUNÇÕES DE TRACKING
+        // ==========================================
+
+        /**
+         * Captura todos os parâmetros UTM da URL
+         */
+        function captureUTMParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                utm_source: urlParams.get('utm_source'),
+                utm_medium: urlParams.get('utm_medium'),
+                utm_campaign: urlParams.get('utm_campaign'),
+                utm_term: urlParams.get('utm_term'),
+                utm_content: urlParams.get('utm_content'),
+                ad_id: urlParams.get('ad_id'),
+                ad_name: urlParams.get('ad_name'),
+                gclid: urlParams.get('gclid'), // Google Click ID
+                fbclid: urlParams.get('fbclid'), // Facebook Click ID
+                referrer_url: document.referrer || null,
+                landing_page: window.location.href,
+                captured_at: new Date().toISOString()
+            };
+        }
+
+        /**
+         * Salva os parâmetros UTM no sessionStorage
+         * Persiste durante toda a sessão do usuário
+         */
+        function saveUTMParams() {
+            const params = captureUTMParams();
+            
+            // Só salva se ainda não tiver salvo (first-touch attribution)
+            if (!sessionStorage.getItem('utm_params')) {
+                sessionStorage.setItem('utm_params', JSON.stringify(params));
+                console.log('✅ Parâmetros UTM capturados:', params);
+            }
+            
+            // Atualiza a página atual
+            sessionStorage.setItem('current_page', window.location.href);
+        }
+
+        /**
+         * Recupera os parâmetros UTM salvos
+         */
+        function getSavedUTMParams() {
+            const saved = sessionStorage.getItem('utm_params');
+            return saved ? JSON.parse(saved) : {};
+        }
+
+        /**
+         * Atualiza a UI com informações de tracking
+         */
+        function updateTrackingUI() {
+            const params = getSavedUTMParams();
+            
+            if (params.utm_source || params.utm_campaign) {
+                document.getElementById('detectedSource').textContent = 
+                    params.utm_source || 'Direta';
+                document.getElementById('detectedCampaign').textContent = 
+                    params.utm_campaign || 'N/A';
+            } else {
+                document.getElementById('trackingInfo').style.display = 'none';
+            }
+        }
+
+        /**
+         * Determina a origem automaticamente
+         */
+        function determineOrigin(utmParams) {
+            const source = (utmParams.utm_source || '').toLowerCase();
+            
+            if (source.includes('instagram') || source === 'ig') return 'instagram';
+            if (source.includes('facebook') || source === 'fb') return 'facebook';
+            if (source.includes('whatsapp') || source === 'wa') return 'whatsapp';
+            if (source.includes('google')) return 'google_ads';
+            if (utmParams.gclid) return 'google_ads';
+            if (utmParams.fbclid && !source) return 'facebook';
+            
+            return 'site';
+        }
+
+        // ==========================================
+        // ENVIO DO FORMULÁRIO
+        // ==========================================
+
+        /**
+         * Envia o lead para a API
+         */
+        async function submitLead(formData) {
+            const utmParams = getSavedUTMParams();
+            const origin = determineOrigin(utmParams);
+            
+            // Monta o payload completo
+            const payload = {
+                tenant_id: CONFIG.TENANT_ID,
+                
+                // Dados do formulário
+                name: formData.get('name'),
+                phone: formData.get('phone'),
+                email: formData.get('email') || null,
+                message: formData.get('message') || null,
+                
+                // Origem detectada automaticamente
+                origin: origin,
+                
+                // Parâmetros UTM
+                utm_source: utmParams.utm_source,
+                utm_medium: utmParams.utm_medium,
+                utm_campaign: utmParams.utm_campaign,
+                utm_term: utmParams.utm_term,
+                utm_content: utmParams.utm_content,
+                
+                // Tracking adicional
+                referrer_url: utmParams.referrer_url,
+                landing_page: utmParams.landing_page,
+                ad_id: utmParams.ad_id,
+                ad_name: utmParams.ad_name,
+                
+                // Dados da plataforma
+                platform_data: {
+                    user_agent: navigator.userAgent,
+                    screen_resolution: `${window.screen.width}x${window.screen.height}`,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    gclid: utmParams.gclid,
+                    fbclid: utmParams.fbclid,
+                    submitted_at: new Date().toISOString(),
+                    current_url: window.location.href
+                }
+            };
+
+            console.log('📤 Enviando lead:', payload);
+
+            const response = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/lead-capture`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': CONFIG.SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Erro ao enviar');
+            }
+
+            return await response.json();
+        }
+
+        /**
+         * Manipula o envio do formulário
+         */
+        document.getElementById('leadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const submitBtn = document.getElementById('submitBtn');
+            const successMsg = document.getElementById('successMessage');
+            const errorMsg = document.getElementById('errorMessage');
+            
+            // Desabilita o botão
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Enviando...';
+            
+            // Esconde mensagens anteriores
+            successMsg.style.display = 'none';
+            errorMsg.style.display = 'none';
+            
+            try {
+                const formData = new FormData(form);
+                const result = await submitLead(formData);
+                
+                console.log('✅ Lead enviado com sucesso:', result);
+                
+                // Exibe mensagem de sucesso
+                successMsg.style.display = 'block';
+                
+                // Limpa o formulário
+                form.reset();
+                
+                // Limpa os parâmetros UTM salvos
+                sessionStorage.removeItem('utm_params');
+                
+                // Scroll para o topo
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+                // Opcional: Redirecionar após alguns segundos
+                // setTimeout(() => {
+                //     window.location.href = '/obrigado';
+                // }, 3000);
+                
+            } catch (error) {
+                console.error('❌ Erro ao enviar lead:', error);
+                
+                // Exibe mensagem de erro
+                errorMsg.textContent = `❌ ${error.message}`;
+                errorMsg.style.display = 'block';
+                
+            } finally {
+                // Re-habilita o botão
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Enviar Mensagem';
+            }
+        });
+
+        // ==========================================
+        // INICIALIZAÇÃO
+        // ==========================================
+
+        // Captura e salva parâmetros UTM ao carregar a página
+        saveUTMParams();
+
+        // Atualiza a UI com informações de tracking
+        updateTrackingUI();
+
+        // Log para debug (remova em produção)
+        console.log('🎯 Tracking ativo:', getSavedUTMParams());
+    </script>
+</body>
+</html>
+
+

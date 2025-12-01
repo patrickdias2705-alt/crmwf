@@ -1,0 +1,188 @@
+/* Fix para visibilidade dos dropdowns */
+[data-radix-select-content] {
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+}
+
+/* Corrigir labels APENAS em fundos escuros */
+[data-radix-dialog-content] label,
+[data-radix-dialog-content] .text-muted-foreground,
+[data-radix-dialog-content] .text-gray-600,
+[data-radix-dialog-content] .text-gray-500,
+[data-radix-dialog-content] .text-gray-400,
+[data-radix-dialog-content] .text-gray-300 {
+  color: #ffffff !important;
+}
+
+/* Apenas em fundos escuros específicos */
+.bg-slate-900 label,
+.bg-slate-800 label,
+.bg-slate-700 label,
+.bg-slate-600 label,
+.bg-slate-900 .text-muted-foreground,
+.bg-slate-800 .text-muted-foreground,
+.bg-slate-700 .text-muted-foreground,
+.bg-slate-600 .text-muted-foreground,
+.bg-slate-900 .text-gray-600,
+.bg-slate-800 .text-gray-600,
+.bg-slate-700 .text-gray-600,
+.bg-slate-600 .text-gray-600,
+.bg-slate-900 .text-gray-500,
+.bg-slate-800 .text-gray-500,
+.bg-slate-700 .text-gray-500,
+.bg-slate-600 .text-gray-500 {
+  color: #ffffff !important;
+}
+
+[data-radix-select-item] {
+  color: #ffffff !important;
+  background: transparent !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-radix-select-item]:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+[data-radix-select-item][data-highlighted] {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: #60a5fa !important;
+}
+
+[data-radix-select-item][data-state="checked"] {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: #60a5fa !important;
+}
+
+/* Garantir que o texto seja visível */
+[data-radix-select-item] span {
+  color: inherit !important;
+}
+
+/* Corrigir textos em modais e dialogs com fundo escuro */
+.dialog-content label,
+.dialog-content .text-muted-foreground,
+.dialog-content .text-gray-600,
+.dialog-content .text-gray-500,
+.dialog-content .text-gray-400,
+.dialog-content .text-gray-300 {
+  color: #ffffff !important;
+}
+
+/* Aplicar branco APENAS quando o fundo for escuro (gradiente escuro) */
+[style*="background: linear-gradient(135deg, #0f172a"] label,
+[style*="background: linear-gradient(135deg, #0f172a"] .text-muted-foreground,
+[style*="background: linear-gradient(135deg, #0f172a"] .text-gray-600,
+[style*="background: linear-gradient(135deg, #0f172a"] .text-gray-500,
+[style*="background: linear-gradient(135deg, #0f172a"] .text-gray-400,
+[style*="background: linear-gradient(135deg, #0f172a"] .text-gray-300 {
+  color: #ffffff !important;
+}
+
+/* Aplicar branco em elementos com fundo escuro específico */
+[class*="bg-slate-9"] label,
+[class*="bg-slate-8"] label,
+[class*="bg-slate-7"] label,
+[class*="bg-slate-6"] label {
+  color: #ffffff !important;
+}
+
+/* Garantir que dropdowns dentro de dialogs tenham fundo escuro e texto branco */
+[data-radix-dialog-content] [data-radix-select-content] {
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+}
+
+[data-radix-dialog-content] [data-radix-select-item] {
+  color: #ffffff !important;
+  background: transparent !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-radix-dialog-content] [data-radix-select-item]:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+[data-radix-dialog-content] [data-radix-select-item][data-highlighted] {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: #60a5fa !important;
+}
+
+[data-radix-dialog-content] [data-radix-select-item][data-state="checked"] {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: #60a5fa !important;
+}
+
+/* Garantir que o texto seja visível em dropdowns de dialogs */
+[data-radix-dialog-content] [data-radix-select-item] span {
+  color: inherit !important;
+}
+
+/* Forçar dropdowns em dialogs a terem sempre fundo escuro independente do tema */
+[data-radix-dialog-content] [data-radix-select-content] {
+  background: #1e293b !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+}
+
+/* Forçar itens de dropdown em dialogs a terem sempre texto branco */
+[data-radix-dialog-content] [data-radix-select-item] {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+[data-radix-dialog-content] [data-radix-select-item]:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+[data-radix-dialog-content] [data-radix-select-item][data-highlighted] {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: #60a5fa !important;
+}
+
+[data-radix-dialog-content] {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+[data-radix-popover-content] {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  color: white !important;
+}
+
+[data-radix-command-dialog] {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%) !important;
+  color: white !important;
+}
+
+[data-radix-command-item] {
+  color: white !important;
+  background: transparent !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-radix-command-item]:hover {
+  background: rgba(59, 130, 246, 0.15) !important;
+  color: #93c5fd !important;
+}
+
+[data-radix-command-item][data-highlighted] {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #60a5fa !important;
+}

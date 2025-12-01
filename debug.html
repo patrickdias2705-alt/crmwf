@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug - WF Cirúrgicos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .debug-container {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 20px;
+            background: white;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(34, 197, 94, 0.2);
+            border-radius: 10px;
+            border: 2px solid #22c55e;
+        }
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 2px solid #ef4444;
+        }
+        .info {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 10px;
+            border: 2px solid #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-container">
+        <div class="logo">WF</div>
+        <h1>WF Cirúrgicos - Debug</h1>
+        
+        <div class="status" id="status">
+            ✅ Arquivos carregados com sucesso!
+        </div>
+        
+        <div class="info">
+            <h3>Informações do Servidor:</h3>
+            <p><strong>URL:</strong> <span id="url"></span></p>
+            <p><strong>User Agent:</strong> <span id="userAgent"></span></p>
+            <p><strong>Timestamp:</strong> <span id="timestamp"></span></p>
+        </div>
+        
+        <div class="info">
+            <h3>Teste de JavaScript:</h3>
+            <p id="jsTest">❌ JavaScript não está funcionando</p>
+        </div>
+        
+        <div class="info">
+            <h3>Próximos Passos:</h3>
+            <ol style="text-align: left;">
+                <li>Se você vê esta página, os arquivos estão sendo servidos</li>
+                <li>Verifique se o arquivo <code>index.html</code> existe na raiz</li>
+                <li>Verifique se o arquivo <code>.htaccess</code> existe</li>
+                <li>Teste acessando <code>/index.html</code> diretamente</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Teste básico de JavaScript
+        document.getElementById('jsTest').textContent = '✅ JavaScript está funcionando!';
+        document.getElementById('jsTest').style.color = '#22c55e';
+        
+        // Informações do navegador
+        document.getElementById('url').textContent = window.location.href;
+        document.getElementById('userAgent').textContent = navigator.userAgent.substring(0, 50) + '...';
+        document.getElementById('timestamp').textContent = new Date().toLocaleString('pt-BR');
+        
+        // Verificar se há erros
+        window.addEventListener('error', function(e) {
+            document.getElementById('status').className = 'status error';
+            document.getElementById('status').innerHTML = '❌ Erro JavaScript: ' + e.message;
+        });
+    </script>
+</body>
+</html>
+

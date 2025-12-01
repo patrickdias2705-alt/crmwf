@@ -1,0 +1,35 @@
+🔗 WEBHOOK URL PARA CHATWOOT
+
+Cole esta URL no Chatwoot:
+
+https://xqeqaagnnkilihlfjbrm.supabase.co/functions/v1/chatwoot-webhook
+
+📋 CONFIGURAÇÃO NO CHATWOOT:
+
+1. Acesse: https://chatwoot-chatwoot.l0vghu.easypanel.host/
+2. Login: patrickdias2705@gmail.com / Polo2015
+3. Vá em: Configurações → Integrações → Webhooks
+4. Clique em: "Configurar"
+5. Cole a URL acima
+6. Eventos para selecionar:
+   ✅ conversation.created
+   ✅ conversation.updated
+   ✅ message.created
+   ✅ message.updated
+   ✅ conversation.status_changed
+   ✅ conversation.assignee_changed
+7. Clique em: "Salvar"
+
+🎯 RESULTADO:
+- Todas as mensagens do WhatsApp aparecerão automaticamente no CRM
+- Não precisará ficar clicando para atualizar
+- Sincronização em tempo real
+- Experiência profissional
+
+🚀 PRÓXIMOS PASSOS:
+1. Configure o webhook no Chatwoot
+2. Resolva o problema do token (crie um novo)
+3. Conecte o WhatsApp no Chatwoot
+4. Teste enviando mensagens
+
+✅ WEBHOOK PRONTO PARA USO!

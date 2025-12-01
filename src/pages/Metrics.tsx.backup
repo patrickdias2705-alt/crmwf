@@ -1,0 +1,785 @@
+import { useState, useEffect } from 'react';
+import { Layout } from '@/components/Layout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, Users, Target, MessageSquare, Calendar, Clock, Award, Trash2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import { SalesSummary } from '@/components/SalesSummary';
+import { LiveSalesStats } from '@/components/LiveSalesStats';
+import { ConversionFunnel } from '@/components/ConversionFunnel';
+import { ExportLeadsButton } from '@/components/ExportLeadsButton';
+import { useTenantView } from '@/contexts/TenantViewContext';
+
+interface MetricCard {
+  title: string;
+  value: string;
+  change: number;
+  icon: React.ElementType;
+  color: string;
+}
+
+interface ChartData {
+  name: string;
+  value: number;
+  color?: string;
+  leads?: number;
+  conversoes?: number;
+  mensagens?: number;
+}
+
+interface FunnelStage {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export default function Metrics() {
+  const { user } = useAuth();
+  const { viewingAgentId, isViewingAgent } = useTenantView();
+  const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState('7d');
+  const [metrics, setMetrics] = useState<MetricCard[]>([]);
+  const [dailyData, setDailyData] = useState<ChartData[]>([]);
+  const [sourceData, setSourceData] = useState<ChartData[]>([]);
+  const [conversionData, setConversionData] = useState<FunnelStage[]>([]);
+  const [ticketMedio, setTicketMedio] = useState(0);
+  const [ltv, setLtv] = useState(0);
+  const [cac, setCac] = useState(0);
+  const [roi, setRoi] = useState(0);
+
+  useEffect(() => {
+    if (user?.tenant_id) {
+      fetchMetrics();
+    }
+  }, [user?.tenant_id, period, viewingAgentId, isViewingAgent]);
+
+  useEffect(() => {
+    if (!user?.tenant_id) return;
+
+    // Subscribe to realtime changes for leads, stages, budgets
+    const leadsChannel = supabase
+      .channel('metrics-leads-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads'
+        },
+        () => {
+          console.log('Lead changed, updating metrics');
+          fetchMetrics();
+        }
+      )
+      .subscribe();
+
+    const stagesChannel = supabase
+      .channel('metrics-stages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stages'
+        },
+        () => {
+          console.log('Stage changed, updating metrics');
+          fetchMetrics();
+        }
+      )
+      .subscribe();
+
+    const metricsChannel = supabase
+      .channel('metrics-daily-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'metrics_daily'
+        },
+        () => {
+          console.log('Metrics changed, refreshing');
+          fetchMetrics();
+        }
+      )
+      .subscribe();
+
+    const budgetsChannel = supabase
+      .channel('metrics-budgets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'budgets'
+        },
+        () => {
+          console.log('Budget changed, updating metrics');
+          fetchMetrics();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(leadsChannel);
+      supabase.removeChannel(stagesChannel);
+      supabase.removeChannel(metricsChannel);
+      supabase.removeChannel(budgetsChannel);
+    };
+  }, [user?.tenant_id]);
+
+  const handleClearData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Você precisa estar logado');
+        return;
+      }
+
+      const response = await supabase.functions.invoke('clear-data', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (response.error) {
+        throw response.error;
+      }
+
+      toast.success('Todos os dados foram apagados com sucesso!');
+      fetchMetrics();
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      toast.error('Erro ao limpar dados');
+    }
+  };
+
+  const fetchMetrics = async () => {
+    try {
+      setLoading(true);
+
+      console.log('📊 Metrics - Loading for:', { 
+        viewingAgentId, 
+        isViewingAgent 
+      });
+
+      // Buscar métricas reais do banco (versão simplificada)
+      let metricsData = [];
+      try {
+        const { data, error } = await supabase
+          .from('metrics_daily')
+          .select('*')
+          .eq('tenant_id', user?.tenant_id)
+          .gte('date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .order('date', { ascending: false });
+        
+        if (error) {
+          console.error('Erro ao buscar metrics_daily:', error);
+          metricsData = [];
+        } else {
+          metricsData = data || [];
+        }
+      } catch (error) {
+        console.error('Erro na query metrics_daily:', error);
+        metricsData = [];
+      }
+
+      // Calcular totais
+      const totals = metricsData?.reduce((acc, day) => ({
+        leads_in: acc.leads_in + (day.leads_in || 0),
+        leads_attended: acc.leads_attended + (day.leads_attended || 0),
+        qualified: acc.qualified + (day.qualified || day.booked || 0),
+        closed: acc.closed + (day.closed || 0),
+        lost: acc.lost + (day.lost || 0),
+        refused: acc.refused + (day.refused || 0)
+      }), { leads_in: 0, leads_attended: 0, qualified: 0, closed: 0, lost: 0, refused: 0 }) || 
+      { leads_in: 0, leads_attended: 0, qualified: 0, closed: 0, lost: 0, refused: 0 };
+
+      const conversion_rate = totals.leads_in > 0 ? (totals.closed / totals.leads_in) * 100 : 0;
+
+      // Buscar total real de leads no banco (com filtro de agente se necessário)
+      let leadsCountQuery = supabase
+        .from('leads')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', user?.tenant_id);
+      
+      if (isViewingAgent && viewingAgentId) {
+        leadsCountQuery = leadsCountQuery.eq('assigned_to', viewingAgentId);
+      }
+      
+      const { count: totalLeadsCount } = await leadsCountQuery;
+
+      // Buscar total de mensagens (com filtro de agente se necessário)
+      let messagesCountQuery = supabase
+        .from('messages')
+        .select('*, conversations!inner(lead_id, leads!inner(assigned_to))', { count: 'exact', head: true })
+        .eq('tenant_id', user?.tenant_id);
+      
+      if (isViewingAgent && viewingAgentId) {
+        messagesCountQuery = messagesCountQuery.eq('conversations.leads.assigned_to', viewingAgentId);
+      }
+      
+      const { count: messagesCount } = await messagesCountQuery;
+
+      // Buscar orçamentos para calcular métricas financeiras (com filtro de agente)
+      let budgetsQuery = supabase
+        .from('budgets')
+        .select('value, roi, lead_id, leads!inner(stage_id, assigned_to, stages!inner(name))')
+        .eq('leads.tenant_id', user?.tenant_id);
+      
+      if (isViewingAgent && viewingAgentId) {
+        budgetsQuery = budgetsQuery.eq('leads.assigned_to', viewingAgentId);
+      }
+      
+      const { data: budgetsData } = await budgetsQuery;
+
+      // Calcular métricas financeiras
+      const totalBudgets = budgetsData?.reduce((sum, b) => sum + (Number(b.value) || 0), 0) || 0;
+      const closedBudgets = budgetsData?.filter(b => {
+        const stageName = (b.leads as any)?.stages?.name?.toLowerCase() || '';
+        return stageName.includes('fechado') || 
+               stageName.includes('vendido') || 
+               stageName.includes('ganho') ||
+               stageName.includes('bolso'); // Novo estágio "Dinheiro no bolso"
+      }) || [];
+      
+      const totalRevenue = closedBudgets.reduce((sum, b) => sum + (Number(b.value) || 0), 0);
+      
+      // Cálculos baseados em tráfego pago real
+      // Investimento diário: R$ 300/dia, custo por clique: R$ 15-18
+      const dailyAdSpend = 300;
+      const avgCostPerClick = 16.5; // Média entre 15 e 18
+      const daysInPeriod = parseInt(period.replace('d', '')) || 7;
+      const totalAdSpend = dailyAdSpend * daysInPeriod;
+      
+      // CAC = Investimento total em marketing / Número de leads convertidos (fechados)
+      const calculatedCac = closedBudgets.length > 0 ? totalAdSpend / closedBudgets.length : totalAdSpend / Math.max(1, totals.leads_in);
+      
+      // LTV = Ticket médio × taxa de recompra × margem de lucro
+      // Assumindo 30% margem de lucro e 1.5x taxa de recompra média
+      const profitMargin = 0.3;
+      const repeatPurchaseRate = 1.5;
+      const calculatedLtv = avgTicket * repeatPurchaseRate * profitMargin;
+      
+      // ROI = ((Receita total - Investimento total) / Investimento total) × 100
+      const calculatedRoi = totalAdSpend > 0 ? ((totalRevenue - totalAdSpend) / totalAdSpend) * 100 : 0;
+      
+      console.log('💰 Métricas financeiras atualizadas:', {
+        totalBudgets,
+        closedBudgets: closedBudgets.length,
+        totalRevenue,
+        ticketMedio: avgTicket,
+        totalAdSpend,
+        cac: calculatedCac,
+        ltv: calculatedLtv,
+        roi: calculatedRoi,
+        periodo: daysInPeriod
+      });
+
+      // Atualizar estados
+      setTicketMedio(avgTicket);
+      setLtv(calculatedLtv);
+      setCac(calculatedCac);
+      setRoi(calculatedRoi);
+
+      // Buscar contagem real de qualificados (leads em estágio de qualificação)
+      const { data: qualifiedStages } = await supabase
+        .from('stages')
+        .select('id')
+        .eq('tenant_id', user?.tenant_id)
+        .ilike('name', '%qualificado%');
+
+      const qualifiedStageIds = qualifiedStages?.map(s => s.id) || [];
+      
+      let qualifiedCount = 0;
+      if (qualifiedStageIds.length > 0) {
+        let qualifiedQuery = supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', user?.tenant_id)
+          .in('stage_id', qualifiedStageIds);
+        
+        if (isViewingAgent && viewingAgentId) {
+          qualifiedQuery = qualifiedQuery.eq('assigned_to', viewingAgentId);
+        }
+        
+        const { count } = await qualifiedQuery;
+        qualifiedCount = count || 0;
+      }
+
+      // Buscar contagem real de leads fechados
+      const { data: closedStages } = await supabase
+        .from('stages')
+        .select('id')
+        .eq('tenant_id', user?.tenant_id)
+        .or('name.ilike.%fechado%,name.ilike.%vendido%,name.ilike.%ganho%,name.ilike.%bolso%');
+
+      const closedStageIds = closedStages?.map(s => s.id) || [];
+      
+      let closedCount = 0;
+      if (closedStageIds.length > 0) {
+        let closedQuery = supabase
+          .from('leads')
+          .select('*', { count: 'exact', head: true })
+          .eq('tenant_id', user?.tenant_id)
+          .in('stage_id', closedStageIds);
+        
+        if (isViewingAgent && viewingAgentId) {
+          closedQuery = closedQuery.eq('assigned_to', viewingAgentId);
+        }
+        
+        const { count } = await closedQuery;
+        closedCount = count || 0;
+      }
+
+      // Calcular taxa de conversão real
+      const realConversionRate = totalLeadsCount && totalLeadsCount > 0 
+        ? (closedCount / totalLeadsCount) * 100 
+        : 0;
+
+      // Buscar total vendido e ticket médio - versão super simplificada
+      let totalSold = 0;
+      let avgTicket = 0;
+      
+      // Buscar diretamente da tabela sales (mais simples)
+      try {
+        const { data: salesData, error: salesError } = await supabase
+          .from('sales')
+          .select('amount')
+          .eq('tenant_id', user?.tenant_id);
+
+        if (salesError) {
+          console.log('📊 Erro ao buscar sales:', salesError);
+        } else if (salesData && salesData.length > 0) {
+          totalSold = salesData.reduce((sum, sale) => sum + (Number(sale.amount) || 0), 0);
+          avgTicket = salesData.length > 0 ? totalSold / salesData.length : 0;
+          console.log('📊 Calculando da tabela sales:', { totalSold, avgTicket, vendas: salesData.length });
+        } else {
+          console.log('📊 Nenhuma venda encontrada na tabela sales');
+        }
+      } catch (error) {
+        console.log('📊 Erro geral ao buscar sales:', error);
+        // Usar valores padrão
+        totalSold = 0;
+        avgTicket = 0;
+      }
+
+      // Format metrics cards
+      const metricsCards: MetricCard[] = [
+        {
+          title: 'Total de Leads',
+          value: (totalLeadsCount || 0).toString(),
+          change: 0,
+          icon: Users,
+          color: 'text-blue-500'
+        },
+        {
+          title: 'Taxa de Conversão',
+          value: `${realConversionRate.toFixed(1)}%`,
+          change: 0,
+          icon: Target,
+          color: 'text-green-500'
+        },
+        {
+          title: 'Mensagens Enviadas',
+          value: (messagesCount || 0).toString(),
+          change: 0,
+          icon: MessageSquare,
+          color: 'text-purple-500'
+        },
+        {
+          title: 'Qualificados',
+          value: qualifiedCount.toString(),
+          change: 0,
+          icon: Calendar,
+          color: 'text-primary'
+        },
+        {
+          title: 'Ticket Médio',
+          value: `R$ ${avgTicket.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          change: 0,
+          icon: Clock,
+          color: 'text-red-500'
+        },
+        {
+          title: 'Total Vendido',
+          value: `R$ ${totalSold.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          change: 0,
+          icon: Award,
+          color: 'text-emerald-500'
+        },
+        {
+          title: 'Leads Fechados',
+          value: closedCount.toString(),
+          change: 0,
+          icon: Award,
+          color: 'text-yellow-500'
+        }
+      ];
+
+      setMetrics(metricsCards);
+
+      // Buscar dados diários
+      const daily: ChartData[] = metricsData?.map(day => ({
+        name: new Date(day.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+        value: day.leads_in || 0,
+        leads: day.leads_in || 0,
+        conversoes: day.closed || 0
+      })).reverse() || [];
+      setDailyData(daily);
+
+      // Buscar leads por origem (com filtro de agente)
+      let leadsDataQuery = supabase
+        .from('leads')
+        .select('origin')
+        .eq('tenant_id', user?.tenant_id);
+      
+      if (isViewingAgent && viewingAgentId) {
+        leadsDataQuery = leadsDataQuery.eq('assigned_to', viewingAgentId);
+      }
+      
+      const { data: leadsData } = await leadsDataQuery;
+
+      const sourceCounts = leadsData?.reduce((acc: any, lead) => {
+        const origin = lead.origin || 'outro';
+        acc[origin] = (acc[origin] || 0) + 1;
+        return acc;
+      }, {}) || {};
+
+      const sources: ChartData[] = Object.entries(sourceCounts).map(([name, value]) => ({
+        name: name.charAt(0).toUpperCase() + name.slice(1),
+        value: value as number,
+        color: name === 'whatsapp' ? '#10B981' : name === 'instagram' ? '#E1306C' : name === 'facebook' ? '#1877F2' : name === 'site' ? '#8B5CF6' : name === 'indicacao' ? '#F59E0B' : '#6B7280'
+      }));
+      setSourceData(sources);
+
+      // Buscar stages com cores personalizadas e contar leads
+      const { data: stages } = await supabase
+        .from('stages')
+        .select('id, name, color')
+        .eq('tenant_id', user?.tenant_id)
+        .order('order', { ascending: true });
+
+      const conversion: FunnelStage[] = [];
+      
+      // Usar Promise.all para buscar contagens em paralelo (com filtro de agente)
+      if (stages && stages.length > 0) {
+        const countsPromises = stages.map(stage => {
+          let stageQuery = supabase
+            .from('leads')
+            .select('*', { count: 'exact', head: true })
+            .eq('tenant_id', user?.tenant_id)
+            .eq('stage_id', stage.id);
+          
+          if (isViewingAgent && viewingAgentId) {
+            stageQuery = stageQuery.eq('assigned_to', viewingAgentId);
+          }
+          
+          return stageQuery;
+        });
+
+        const counts = await Promise.all(countsPromises);
+
+        stages.forEach((stage, index) => {
+          conversion.push({
+            name: stage.name,
+            value: counts[index].count || 0,
+            color: stage.color || ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index % 5]
+          });
+        });
+      }
+
+      setConversionData(conversion);
+
+    } catch (error) {
+      console.error('Error fetching metrics:', error);
+      toast.error('Erro ao carregar métricas');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Métricas</h1>
+            <p className="text-muted-foreground">
+              Analise o desempenho do seu negócio
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <ExportLeadsButton />
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                <SelectItem value="1y">Último ano</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Limpar Dados
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá apagar permanentemente todos os seus leads, conversas, métricas e orçamentos. 
+                    Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearData} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Sim, apagar tudo
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+
+        {/* Cards de Métricas */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {metrics.map((metric, index) => {
+            const Icon = metric.icon;
+            return (
+              <Card 
+                key={index} 
+                className="group hover:shadow-lg transition-all duration-300 animate-fade-in hover-scale"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {metric.title}
+                  </CardTitle>
+                  <Icon className={`h-4 w-4 ${metric.color} transition-transform duration-300 group-hover:scale-110`} />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold animate-fade-in" style={{ animationDelay: `${index * 100 + 200}ms` }}>
+                    {metric.value}
+                  </div>
+                  <div className="flex items-center text-xs text-muted-foreground animate-fade-in" style={{ animationDelay: `${index * 100 + 400}ms` }}>
+                    {metric.change > 0 ? (
+                      <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 text-red-500 mr-1" />
+                    )}
+                    <span className={metric.change > 0 ? 'text-green-500' : 'text-red-500'}>
+                      {Math.abs(metric.change)}%
+                    </span>
+                    <span className="ml-1">vs período anterior</span>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gráfico de Linha - Performance Diária */}
+          <Card className="animate-fade-in" style={{ animationDelay: '600ms' }}>
+            <CardHeader>
+              <CardTitle>Performance Diária</CardTitle>
+              <CardDescription>
+                Acompanhe a evolução dos seus indicadores
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={dailyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="leads" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    name="Leads"
+                    dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="conversoes" 
+                    stroke="#10B981" 
+                    strokeWidth={2}
+                    name="Conversões"
+                    dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                    activeDot={{ r: 6, stroke: '#10B981', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Gráfico de Pizza - Fontes */}
+          <Card className="animate-fade-in" style={{ animationDelay: '800ms' }}>
+            <CardHeader>
+              <CardTitle>Leads por Fonte</CardTitle>
+              <CardDescription>
+                Distribuição dos leads por canal de origem
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={sourceData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    animationBegin={1000}
+                    animationDuration={1500}
+                  >
+                    {sourceData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={(entry as any).color || COLORS[index % COLORS.length]} 
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Funil de Conversão */}
+        <Card className="animate-fade-in" style={{ animationDelay: '1000ms' }}>
+          <CardHeader>
+            <CardTitle>Funil de Conversão</CardTitle>
+            <CardDescription>
+              Visualize o progresso dos leads através do pipeline
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="py-8">
+            <ConversionFunnel data={conversionData} />
+          </CardContent>
+        </Card>
+
+        {/* Estatísticas Adicionais */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="animate-fade-in hover-scale" style={{ animationDelay: '1200ms' }}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Ticket Médio
+                  </p>
+                  <p className="text-2xl font-bold">R$ {ticketMedio.toFixed(2)}</p>
+                </div>
+                <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950/20 dark:text-green-400">
+                  +0%
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="animate-fade-in hover-scale" style={{ animationDelay: '1300ms' }}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    LTV Médio
+                  </p>
+                  <p className="text-2xl font-bold">R$ {ltv.toFixed(2)}</p>
+                </div>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-950/20 dark:text-blue-400">
+                  +0%
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="animate-fade-in hover-scale" style={{ animationDelay: '1400ms' }}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    CAC
+                  </p>
+                  <p className="text-2xl font-bold">R$ {cac.toFixed(2)}</p>
+                </div>
+                <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-950/20 dark:text-red-400">
+                  -0%
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="animate-fade-in hover-scale" style={{ animationDelay: '1500ms' }}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    ROI
+                  </p>
+                  <p className="text-2xl font-bold">{roi.toFixed(1)}x</p>
+                </div>
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-950/20 dark:text-purple-400">
+                  +0%
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Estatísticas em Tempo Real e Resumo de Vendas */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <LiveSalesStats />
+          <SalesSummary period={parseInt(period.replace('d', '')) || 7} />
+        </div>
+      </div>
+    </Layout>
+  );
+}
