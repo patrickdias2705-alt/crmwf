@@ -199,7 +199,7 @@ SELECT
 FROM public.users u
 LEFT JOIN public.tenants t ON u.tenant_id = t.id
 LEFT JOIN public.leads l ON l.tenant_id = u.tenant_id AND l.assigned_to = u.id
-LEFT JOIN public.budget_documents b ON b.tenant_id = u.tenant_id AND b.created_by = u.id
+LEFT JOIN public.budget_documents b ON b.tenant_id = u.tenant_id AND b.uploaded_by = u.id
 LEFT JOIN public.sales s ON s.tenant_id = u.tenant_id AND s.sold_by = u.id
 WHERE u.email = 'juliawf@gmail.com'
 GROUP BY u.id, u.name, t.name;
