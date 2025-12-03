@@ -241,12 +241,12 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           // Buscar orçamento mais recente (vendido ou aberto) da tabela budget_documents
           // Priorizar vendido se existir, senão buscar aberto
           const { data: budgetDocs, error: budgetError } = await supabase
-            .from('budget_documents')
+              .from('budget_documents')
             .select('amount, description, file_name, file_base64, file_url, status, sale_id')
-            .eq('lead_id', lead.id)
+              .eq('lead_id', lead.id)
             .in('status', ['aberto', 'vendido'])
-            .order('created_at', { ascending: false })
-            .limit(1)
+              .order('created_at', { ascending: false })
+              .limit(1)
             .maybeSingle();
 
           console.log('📊 Resultado da busca de orçamento:', { budgetDocs, budgetError });
@@ -310,8 +310,8 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             return; // Dados carregados da tabela, não precisa do fallback
           } else {
             console.log('ℹ️ Nenhum orçamento encontrado na tabela budget_documents, usando fallback dos fields');
-          }
-        } catch (error) {
+            }
+          } catch (error) {
           console.error('❌ Erro ao buscar orçamento da tabela:', error);
         }
 
@@ -492,20 +492,20 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
       // SEMPRE tentar atualizar orçamentos (abertos ou vendidos) na tabela budget_documents
       // E também atualizar a tabela sales se o lead estiver vendido
       // Isso permite corrigir valores mesmo que sejam 0 ou vazios
-      try {
+        try {
         // Buscar orçamentos (abertos ou vendidos) para este lead
-        const { data: budgetDocs, error: budgetError } = await supabase
-          .from('budget_documents')
+          const { data: budgetDocs, error: budgetError } = await supabase
+            .from('budget_documents')
           .select('id, amount, description, status, sale_id')
-          .eq('lead_id', lead!.id)
+            .eq('lead_id', lead!.id)
           .in('status', ['aberto', 'vendido'])
-          .order('created_at', { ascending: false })
-          .limit(1);
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-        if (!budgetError && budgetDocs && budgetDocs.length > 0) {
+          if (!budgetError && budgetDocs && budgetDocs.length > 0) {
           // IMPORTANTE: Sempre SUBSTITUIR o valor, nunca somar ou duplicar
           // Atualizar o orçamento mais recente (vendido ou aberto)
-          const updateData: any = {};
+            const updateData: any = {};
           
           // Sempre SUBSTITUIR amount se foi fornecido (mesmo que seja 0)
           // Isso é uma SUBSTITUIÇÃO, não uma adição
@@ -519,21 +519,21 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           }
           
           // Sempre SUBSTITUIR description se foi fornecida
-          if (formData.budget_description !== undefined) {
+            if (formData.budget_description !== undefined) {
             updateData.description = formData.budget_description || '';
-          }
+            }
 
           // Atualizar se houver mudanças - sempre UPDATE (substituição), nunca INSERT
-          if (Object.keys(updateData).length > 0) {
+            if (Object.keys(updateData).length > 0) {
             console.log('💾 SUBSTITUINDO orçamento na tabela budget_documents (UPDATE, não INSERT):', updateData);
-            const { error: updateBudgetError } = await supabase
-              .from('budget_documents')
+              const { error: updateBudgetError } = await supabase
+                .from('budget_documents')
               .update(updateData) // UPDATE sempre substitui, nunca soma
               .eq('id', budgetDocs[0].id); // Atualizar apenas o registro específico
 
-            if (updateBudgetError) {
+              if (updateBudgetError) {
               console.warn('⚠️ Aviso: Não foi possível atualizar o orçamento na tabela budget_documents:', updateBudgetError);
-              // Não falhar a operação principal se houver erro ao atualizar orçamento
+                // Não falhar a operação principal se houver erro ao atualizar orçamento
             } else {
               console.log('✅ Orçamento atualizado com sucesso na tabela budget_documents');
               
@@ -622,10 +622,10 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           }
         } else if (budgetError) {
           console.warn('⚠️ Erro ao buscar orçamento para atualização:', budgetError);
-        }
-      } catch (budgetUpdateError) {
+          }
+        } catch (budgetUpdateError) {
         console.warn('⚠️ Aviso: Erro ao atualizar orçamento na tabela budget_documents:', budgetUpdateError);
-        // Não falhar a operação principal se houver erro ao atualizar orçamento
+          // Não falhar a operação principal se houver erro ao atualizar orçamento
       }
 
       // Atualizar ou remover PDF na tabela budget_documents se necessário
@@ -723,7 +723,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
       <DialogContent 
-        className="max-w-2xl max-h-[90vh] overflow-y-auto [&>button]:hidden"
+        className="max-w-5xl w-[95vw] max-h-[95vh] overflow-y-auto [&>button]:hidden"
         onEscapeKeyDown={(e) => {
           // Prevenir fechamento com ESC - só fechar se for intencional
           if (!userIntentionallyClosed) {
@@ -767,7 +767,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Informações Básicas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="name" className="text-slate-900 dark:text-white font-medium">Nome *</Label>
               <Input
