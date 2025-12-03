@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, X, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useFormPersistence } from '@/hooks/useFormPersistence';
 import { toast } from 'sonner';
 
 interface Lead {
@@ -63,6 +64,17 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
     base64: string;
   } | null>(null);
 
+  // Persistência automática do formulário (apenas quando há um lead sendo editado)
+  const { clearPersistedData } = useFormPersistence(
+    lead ? `edit-lead-${lead.id}` : 'edit-lead',
+    formData,
+    open && !!lead,
+    (restoredData) => {
+      setFormData(restoredData);
+      toast.info('Dados do formulário restaurados automaticamente');
+    }
+  );
+
   // Load stages when dialog opens
   useEffect(() => {
     if (open && user?.tenant_id) {
@@ -70,9 +82,29 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
     }
   }, [open, user?.tenant_id]);
 
-  // Load lead data when lead changes
+  // Load lead data when lead changes (mas não sobrescrever se houver dados persistidos)
   useEffect(() => {
-    if (lead) {
+    if (lead && open) {
+      // Verificar se há dados persistidos antes de carregar do lead
+      const storageKey = `form-persistence-edit-lead-${lead.id}`;
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const age = Date.now() - parsed.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+          
+          // Se há dados persistidos recentes, não sobrescrever
+          if (age < maxAge && parsed.data) {
+            console.log('📋 Mantendo dados persistidos do formulário');
+            return; // Não carregar dados do lead, manter os persistidos
+          }
+        }
+      } catch (error) {
+        // Se houver erro, continuar com o carregamento normal
+      }
+
+      // Carregar dados do lead normalmente
       setFormData({
         name: lead.name || '',
         phone: lead.phone || '',
@@ -95,7 +127,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
         setExistingPdf(null);
       }
     }
-  }, [lead]);
+  }, [lead, open]);
 
   const fetchStages = async () => {
     try {
@@ -177,14 +209,16 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
       };
 
       // Handle PDF upload
+      let shouldUpdatePdfInBudget = false;
       if (pdfFile) {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const base64 = e.target?.result as string;
           fieldsData.budget_file_base64 = base64;
           fieldsData.budget_file_name = pdfFile.name;
+          shouldUpdatePdfInBudget = true;
           
-          await updateLead(fieldsData);
+          await updateLead(fieldsData, shouldUpdatePdfInBudget);
         };
         reader.readAsDataURL(pdfFile);
         return;
@@ -196,9 +230,10 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
         // Remove PDF if both are null
         fieldsData.budget_file_base64 = null;
         fieldsData.budget_file_name = null;
+        shouldUpdatePdfInBudget = true; // Marcar para remover PDF da tabela budget_documents também
       }
 
-      await updateLead(fieldsData);
+      await updateLead(fieldsData, shouldUpdatePdfInBudget);
 
     } catch (error) {
       console.error('Erro ao atualizar lead:', error);
@@ -208,7 +243,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
     }
   };
 
-  const updateLead = async (fieldsData: any) => {
+  const updateLead = async (fieldsData: any, shouldUpdatePdfInBudget: boolean = false) => {
     try {
       // Update lead
       const { error: updateError } = await supabase
@@ -218,6 +253,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
           phone: formData.phone || null,
           email: formData.email || null,
           origin: formData.source,
+          source: formData.source,
           stage_id: formData.stage_id,
           order_number: formData.order_number || null,
           fields: fieldsData
@@ -227,7 +263,102 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
 
       if (updateError) throw updateError;
 
+      // Atualizar orçamentos em aberto na tabela budget_documents se houver valor ou descrição alterados
+      if (formData.budget_amount || formData.budget_description) {
+        try {
+          // Buscar orçamentos em aberto para este lead
+          const { data: budgetDocs, error: budgetError } = await supabase
+            .from('budget_documents')
+            .select('id')
+            .eq('lead_id', lead!.id)
+            .eq('status', 'aberto')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!budgetError && budgetDocs && budgetDocs.length > 0) {
+            // Atualizar o orçamento mais recente em aberto
+            const updateData: any = {};
+            if (formData.budget_amount) {
+              updateData.amount = parseFloat(formData.budget_amount);
+            }
+            if (formData.budget_description !== undefined) {
+              updateData.description = formData.budget_description;
+            }
+
+            if (Object.keys(updateData).length > 0) {
+              const { error: updateBudgetError } = await supabase
+                .from('budget_documents')
+                .update(updateData)
+                .eq('id', budgetDocs[0].id);
+
+              if (updateBudgetError) {
+                console.warn('Aviso: Não foi possível atualizar o orçamento na tabela budget_documents:', updateBudgetError);
+                // Não falhar a operação principal se houver erro ao atualizar orçamento
+              }
+            }
+          }
+        } catch (budgetUpdateError) {
+          console.warn('Aviso: Erro ao atualizar orçamento na tabela budget_documents:', budgetUpdateError);
+          // Não falhar a operação principal se houver erro ao atualizar orçamento
+        }
+      }
+
+      // Atualizar ou remover PDF na tabela budget_documents se necessário
+      if (shouldUpdatePdfInBudget) {
+        try {
+          // Buscar orçamentos em aberto para este lead
+          const { data: budgetDocs, error: budgetError } = await supabase
+            .from('budget_documents')
+            .select('id')
+            .eq('lead_id', lead!.id)
+            .eq('status', 'aberto')
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          if (!budgetError && budgetDocs && budgetDocs.length > 0) {
+            if (fieldsData.budget_file_base64 && pdfFile) {
+              // Atualizar o PDF no orçamento mais recente em aberto
+              const base64Content = fieldsData.budget_file_base64.includes(',') 
+                ? fieldsData.budget_file_base64.split(',')[1] 
+                : fieldsData.budget_file_base64;
+
+              const { error: updateBudgetError } = await supabase
+                .from('budget_documents')
+                .update({
+                  file_name: fieldsData.budget_file_name,
+                  file_base64: base64Content,
+                  file_url: fieldsData.budget_file_base64,
+                  file_size: pdfFile.size
+                })
+                .eq('id', budgetDocs[0].id);
+
+              if (updateBudgetError) {
+                console.warn('Aviso: Não foi possível atualizar o PDF do orçamento:', updateBudgetError);
+              }
+            } else if (!fieldsData.budget_file_base64) {
+              // Remover PDF do orçamento se foi removido
+              const { error: updateBudgetError } = await supabase
+                .from('budget_documents')
+                .update({
+                  file_name: null,
+                  file_base64: null,
+                  file_url: null,
+                  file_size: null
+                })
+                .eq('id', budgetDocs[0].id);
+
+              if (updateBudgetError) {
+                console.warn('Aviso: Não foi possível remover o PDF do orçamento:', updateBudgetError);
+              }
+            }
+          }
+        } catch (pdfUpdateError) {
+          console.warn('Aviso: Erro ao atualizar PDF do orçamento:', pdfUpdateError);
+        }
+      }
+
       toast.success('Lead atualizado com sucesso!');
+      clearPersistedData(); // Limpar dados persistidos após sucesso
       onSuccess();
       onOpenChange(false);
     } catch (error) {

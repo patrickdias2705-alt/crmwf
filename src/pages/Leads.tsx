@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Phone, Mail, Calendar, User, Trash2, DollarSign } from 'lucide-react';
+import { Search, Phone, Mail, Calendar, User, Trash2, DollarSign, Edit } from 'lucide-react';
 import { Button as ActionButton } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,6 +14,7 @@ import { CreateLeadDialog } from '@/components/CreateLeadDialog';
 import { ExportLeadsButton } from '@/components/ExportLeadsButton';
 import { MakeLeadPublicButton } from '@/components/MakeLeadPublicButton';
 import { BudgetDocumentUpload } from '@/components/BudgetDocumentUpload';
+import { EditLeadDialog } from '@/components/EditLeadDialog';
 import { useTenantView } from '@/contexts/TenantViewContext';
 
 interface Lead {
@@ -46,6 +47,8 @@ export default function Leads() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user?.tenant_id) {
@@ -108,7 +111,7 @@ export default function Leads() {
           console.log('🔍 Buscando orçamentos para', leadIds.length, 'leads');
           const { data: budgetDocsData, error: budgetError } = await supabase
             .from('budget_documents')
-            .select('lead_id')
+        .select('lead_id')
             .in('lead_id', leadIds)
             .eq('status', 'aberto'); // Apenas orçamentos em aberto
 
@@ -471,6 +474,18 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
+                          <ActionButton
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingLead(lead);
+                              setEditDialogOpen(true);
+                            }}
+                            className="text-primary hover:text-primary hover:bg-primary/10"
+                            title="Editar lead"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </ActionButton>
                           <MakeLeadPublicButton 
                             leadId={lead.id}
                             isPublic={lead.is_public || false}
@@ -509,6 +524,19 @@ export default function Leads() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de Edição */}
+      {editingLead && (
+        <EditLeadDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          lead={editingLead}
+          onSuccess={() => {
+            fetchLeads();
+            setEditingLead(null);
+          }}
+        />
+      )}
     </Layout>
   );
 }

@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, User, Tag } from 'lucide-react';
+import { Plus, User, Tag, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useFormPersistence } from '@/hooks/useFormPersistence';
 import { toast } from 'sonner';
 
 interface CreateLeadDialogProps {
@@ -18,6 +19,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [userIntentionallyClosed, setUserIntentionallyClosed] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -27,6 +29,78 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
     order_number: '',
     classification: 'curva_a'
   });
+
+  // Persistência automática do formulário
+  const { clearPersistedData } = useFormPersistence(
+    'create-lead',
+    formData,
+    open,
+    (restoredData) => {
+      setFormData(restoredData);
+      toast.info('Dados do formulário restaurados automaticamente');
+    }
+  );
+
+  // Controlar o fechamento do dialog - só fechar se o usuário clicar no X ou Cancelar
+  const handleOpenChange = (newOpen: boolean) => {
+    // Se está fechando e não foi intencional, manter aberto
+    if (!newOpen && !userIntentionallyClosed) {
+      // Não fechar - manter aberto
+      return;
+    }
+    
+    // Se foi intencional, fechar normalmente
+    if (!newOpen && userIntentionallyClosed) {
+      setOpen(false);
+      setUserIntentionallyClosed(false);
+      return;
+    }
+    
+    // Se está abrindo
+    if (newOpen) {
+      setOpen(true);
+      setUserIntentionallyClosed(false);
+    }
+  };
+
+  // Detectar quando a página perde foco (troca de aba) e reabrir dialog se necessário
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // Quando a página volta a ter foco, verificar se há dados persistidos
+      if (!document.hidden && !open) {
+        const storageKey = 'form-persistence-create-lead';
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const age = Date.now() - parsed.timestamp;
+            const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+            
+            // Verificar se há dados válidos e se o formulário não foi intencionalmente fechado
+            if (age < maxAge && parsed.data && !userIntentionallyClosed) {
+              // Verificar se há dados preenchidos (não apenas valores padrão)
+              const hasData = parsed.data.name || parsed.data.phone || parsed.data.email || 
+                             parsed.data.order_number || parsed.data.origin !== 'manual' ||
+                             parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
+              
+              if (hasData) {
+                // Se há dados persistidos, reabrir o dialog
+                setOpen(true);
+                setUserIntentionallyClosed(false);
+              }
+            }
+          }
+        } catch (error) {
+          // Ignorar erros
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [open, userIntentionallyClosed]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +179,9 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       });
 
       toast.success('Lead criado com sucesso!');
+      clearPersistedData(); // Limpar dados persistidos após sucesso
       setFormData({ name: '', phone: '', email: '', origin: 'manual', category: 'varejo', order_number: '', classification: 'curva_a' });
+      setUserIntentionallyClosed(true); // Marcar como fechamento intencional
       setOpen(false);
       onLeadCreated?.();
     } catch (error: any) {
@@ -117,19 +193,56 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
           Novo Lead
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent 
+        className="[&>button]:hidden"
+        onEscapeKeyDown={(e) => {
+          // Prevenir fechamento com ESC - só fechar se for intencional
+          if (!userIntentionallyClosed) {
+            e.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          // Prevenir fechamento ao clicar fora - só fechar se for intencional
+          if (!userIntentionallyClosed) {
+            e.preventDefault();
+          }
+        }}
+        onInteractOutside={(e) => {
+          // Prevenir fechamento ao interagir fora - só fechar se for intencional
+          if (!userIntentionallyClosed) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>Criar Novo Lead</DialogTitle>
-          <DialogDescription>
-            Preencha os dados para adicionar um novo lead ao sistema
-          </DialogDescription>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <DialogTitle>Criar Novo Lead</DialogTitle>
+              <DialogDescription>
+                Preencha os dados para adicionar um novo lead ao sistema
+              </DialogDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+              onClick={() => {
+                setUserIntentionallyClosed(true); // Marcar como fechamento intencional
+                clearPersistedData(); // Limpar dados quando fechar explicitamente
+                setOpen(false);
+              }}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </Button>
+          </div>
         </DialogHeader>
         <Tabs defaultValue="dados" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
@@ -321,7 +434,15 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
             </TabsContent>
 
             <div className="flex justify-end gap-2 mt-6">
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setUserIntentionallyClosed(true); // Marcar como fechamento intencional
+                  clearPersistedData(); // Limpar dados quando cancelar explicitamente
+                  setOpen(false);
+                }}
+              >
                 Cancelar
               </Button>
               <Button type="submit" disabled={loading}>

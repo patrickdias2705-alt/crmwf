@@ -3,8 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { EditLeadDialog } from '@/components/EditLeadDialog';
 import { 
   Calendar, 
   Phone, 
@@ -15,8 +17,20 @@ import {
   CheckCircle2,
   Package,
   Search,
-  Filter
+  Filter,
+  Edit
 } from 'lucide-react';
+
+interface BudgetDocument {
+  id: string;
+  lead_id: string;
+  file_name: string;
+  file_base64: string | null;
+  file_url: string | null;
+  amount: number;
+  description: string;
+  status: string;
+}
 
 interface Lead {
   id: string;
@@ -26,7 +40,10 @@ interface Lead {
   source: string;
   created_at: string;
   is_public: boolean;
+  stage_id?: string;
+  order_number?: string | null;
   fields?: any;
+  budget_documents?: BudgetDocument[];
   stages: {
     name: string;
     color: string;
@@ -40,6 +57,8 @@ export default function ListaGeral() {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [stages, setStages] = useState<{ name: string }[]>([]);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   console.log('🎯 ListaGeral - Componente renderizado', { 
     user: user?.id, 
@@ -111,6 +130,8 @@ export default function ListaGeral() {
           source,
           created_at,
           is_public,
+          stage_id,
+          order_number,
           fields,
           stages(name, color)
         `)
@@ -125,8 +146,41 @@ export default function ListaGeral() {
         throw error;
       }
       
-      setLeads(data || []);
-      console.log('✅ ListaGeral - Leads carregados:', data?.length || 0);
+      // Buscar orçamentos da tabela budget_documents para os leads
+      const leadIds = data?.map(l => l.id) || [];
+      let budgetMap = new Map<string, BudgetDocument[]>();
+      
+      if (leadIds.length > 0) {
+        try {
+          const { data: budgetDocs, error: budgetError } = await supabase
+            .from('budget_documents')
+            .select('id, lead_id, file_name, file_base64, file_url, amount, description, status')
+            .in('lead_id', leadIds)
+            .eq('status', 'aberto')
+            .order('created_at', { ascending: false });
+
+          if (!budgetError && budgetDocs) {
+            // Agrupar orçamentos por lead_id
+            budgetDocs.forEach((budget: BudgetDocument) => {
+              if (!budgetMap.has(budget.lead_id)) {
+                budgetMap.set(budget.lead_id, []);
+              }
+              budgetMap.get(budget.lead_id)!.push(budget);
+            });
+          }
+        } catch (budgetError) {
+          console.warn('⚠️ Erro ao buscar orçamentos:', budgetError);
+        }
+      }
+      
+      // Adicionar orçamentos aos leads
+      const leadsWithBudgets = (data || []).map(lead => ({
+        ...lead,
+        budget_documents: budgetMap.get(lead.id) || []
+      }));
+      
+      setLeads(leadsWithBudgets);
+      console.log('✅ ListaGeral - Leads carregados:', leadsWithBudgets.length);
     } catch (error: any) {
       console.error('💥 ListaGeral - Erro geral:', error);
     } finally {
@@ -530,33 +584,81 @@ export default function ListaGeral() {
                 )}
                 
                 {/* Budget Info - Compacto */}
-                {lead.fields?.budget_file_base64 && (
-                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-3 rounded-lg text-white">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold">
-                        {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL'
-                      }).format(lead.fields.budget_amount || 0)}
-                      </span>
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </div>
-                    <button 
-                      onClick={() => {
-                        const link = document.createElement('a');
-                        link.href = lead.fields.budget_file_base64;
-                        link.download = lead.fields.budget_file_name || 'documento.pdf';
-                        link.target = '_blank';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                      }}
-                      className="text-xs underline hover:no-underline"
-                    >
-                      Baixar documento
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  // Priorizar orçamentos da tabela budget_documents
+                  const budgetDoc = lead.budget_documents?.[0];
+                  const hasBudgetFromTable = budgetDoc && budgetDoc.status === 'aberto';
+                  const hasBudgetFromFields = lead.fields?.budget_file_base64;
+                  
+                  if (hasBudgetFromTable) {
+                    // Orçamento da tabela budget_documents
+                    const fileUrl = budgetDoc.file_url || (budgetDoc.file_base64 ? `data:application/pdf;base64,${budgetDoc.file_base64}` : null);
+                    return (
+                      <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-3 rounded-lg text-white">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold">
+                            {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL'
+                            }).format(budgetDoc.amount || 0)}
+                          </span>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </div>
+                        {budgetDoc.description && (
+                          <div className="text-xs mb-1 opacity-90 line-clamp-1">
+                            {budgetDoc.description}
+                          </div>
+                        )}
+                        {fileUrl && (
+                          <button 
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = fileUrl;
+                              link.download = budgetDoc.file_name || 'documento.pdf';
+                              link.target = '_blank';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
+                            className="text-xs underline hover:no-underline"
+                          >
+                            📄 Baixar documento
+                          </button>
+                        )}
+                      </div>
+                    );
+                  } else if (hasBudgetFromFields) {
+                    // Fallback para orçamento antigo em fields
+                    return (
+                      <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-3 rounded-lg text-white">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold">
+                            {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL'
+                            }).format(lead.fields.budget_amount || 0)}
+                          </span>
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                        </div>
+                        <button 
+                          onClick={() => {
+                            const link = document.createElement('a');
+                            link.href = lead.fields.budget_file_base64;
+                            link.download = lead.fields.budget_file_name || 'documento.pdf';
+                            link.target = '_blank';
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          }}
+                          className="text-xs underline hover:no-underline"
+                        >
+                          📄 Baixar documento
+                        </button>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Footer - Ultra Compacto */}
                 <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400">
@@ -564,14 +666,41 @@ export default function ListaGeral() {
                     <Calendar className="h-3 w-3" />
                     <span>{new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
                   </div>
-                  <Badge className={getSourceColor(lead.source)} style={{ fontSize: '10px', padding: '2px 6px' }}>
-                    {lead.source === 'whatsapp' ? 'WA' : 'Manual'}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge className={getSourceColor(lead.source)} style={{ fontSize: '10px', padding: '2px 6px' }}>
+                      {lead.source === 'whatsapp' ? 'WA' : 'Manual'}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setEditingLead(lead);
+                        setEditDialogOpen(true);
+                      }}
+                      className="h-6 w-6 p-0 text-gray-400 hover:text-primary"
+                      title="Editar lead"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Dialog de Edição */}
+      {editingLead && (
+        <EditLeadDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          lead={editingLead}
+          onSuccess={() => {
+            fetchPublicLeads();
+            setEditingLead(null);
+          }}
+        />
       )}
     </div>
   );
