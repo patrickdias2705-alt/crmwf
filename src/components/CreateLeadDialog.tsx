@@ -34,8 +34,11 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   const open = internalOpen;
 
   // Restaurar dados imediatamente quando o componente monta (após recarregamento)
+  // Usar chave específica por usuário/tenant para evitar conflitos
   useEffect(() => {
-    const storageKey = 'form-persistence-create-lead';
+    if (!user?.id || !user?.tenant_id) return;
+    
+    const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -67,11 +70,15 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
     } catch (error) {
       console.warn('⚠️ Erro ao restaurar dados após recarregamento:', error);
     }
-  }, []); // Executar apenas uma vez quando o componente monta
+  }, [user?.id, user?.tenant_id]); // Executar quando o usuário estiver disponível
 
-  // Persistência automática do formulário
+  // Persistência automática do formulário - usar chave específica por usuário/tenant
+  const formKey = user?.id && user?.tenant_id 
+    ? `create-lead-${user.tenant_id}-${user.id}` 
+    : 'create-lead';
+  
   const { clearPersistedData } = useFormPersistence(
-    'create-lead',
+    formKey,
     formData,
     open,
     (restoredData) => {
@@ -118,8 +125,8 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       // Quando a página volta a ter foco, verificar se há dados persistidos
-      if (!document.hidden) {
-        const storageKey = 'form-persistence-create-lead';
+      if (!document.hidden && user?.id && user?.tenant_id) {
+        const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
         try {
           const saved = localStorage.getItem(storageKey);
           if (saved) {
@@ -151,7 +158,9 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
 
     // Salvar dados quando a página perde foco (troca de aba)
     const handleBeforeUnload = () => {
-      const storageKey = 'form-persistence-create-lead';
+      if (!user?.id || !user?.tenant_id) return;
+      
+      const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
       try {
         // Salvar dados atuais do formulário
         const hasData = formData.name || formData.phone || formData.email || 
@@ -280,8 +289,10 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
 
   // Forçar a manter aberto se houver dados e não foi intencionalmente fechado
   useEffect(() => {
+    if (!user?.id || !user?.tenant_id) return;
+    
     if (!internalOpen && !userIntentionallyClosed) {
-      const storageKey = 'form-persistence-create-lead';
+      const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
       try {
         const saved = localStorage.getItem(storageKey);
         if (saved) {
@@ -304,7 +315,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
         // Ignorar erros
       }
     }
-  }, [internalOpen, userIntentionallyClosed]);
+  }, [internalOpen, userIntentionallyClosed, user?.id, user?.tenant_id]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
