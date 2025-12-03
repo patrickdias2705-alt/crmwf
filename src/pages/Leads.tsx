@@ -496,16 +496,6 @@ export default function Leads() {
                             leadName={lead.name}
                             onDocumentUploaded={fetchLeads}
                           />
-                          {lead.has_budget && !lead.is_closed && (
-                            <ActionButton
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleMarkAsSold(lead.id, lead.name)}
-                              className="bg-green-600 hover:bg-green-700 text-white animate-fade-in"
-                            >
-                              Vendido
-                            </ActionButton>
-                          )}
                           <ActionButton
                             variant="ghost"
                             size="sm"
