@@ -149,35 +149,31 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       }
     };
 
-    // Prevenir recarregamento da página se houver dados no formulário
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    // Salvar dados quando a página perde foco (troca de aba)
+    const handleBeforeUnload = () => {
       const storageKey = 'form-persistence-create-lead';
       try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const age = Date.now() - parsed.timestamp;
-          const maxAge = 24 * 60 * 60 * 1000;
-          
-          if (age < maxAge && parsed.data) {
-            const hasData = parsed.data.name || parsed.data.phone || parsed.data.email || 
-                           parsed.data.order_number || parsed.data.origin !== 'manual' ||
-                           parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
-            
-            if (hasData && internalOpen) {
-              // Não prevenir se o usuário intencionalmente fechou
-              if (!userIntentionallyClosed) {
-                // Salvar estado antes de sair
-                localStorage.setItem(storageKey, JSON.stringify({
-                  data: parsed.data,
-                  timestamp: Date.now()
-                }));
-              }
-            }
-          }
+        // Salvar dados atuais do formulário
+        const hasData = formData.name || formData.phone || formData.email || 
+                       formData.order_number || formData.origin !== 'manual' ||
+                       formData.category !== 'varejo' || formData.classification !== 'curva_a';
+        
+        if (hasData && !userIntentionallyClosed) {
+          localStorage.setItem(storageKey, JSON.stringify({
+            data: formData,
+            timestamp: Date.now()
+          }));
+          console.log('💾 Dados salvos antes de sair da aba:', formData);
         }
       } catch (error) {
-        // Ignorar erros
+        console.warn('⚠️ Erro ao salvar antes de sair:', error);
+      }
+    };
+
+    // Salvar também quando a visibilidade muda
+    const handleVisibilityChangeSave = () => {
+      if (document.hidden) {
+        handleBeforeUnload();
       }
     };
 
