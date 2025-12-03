@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { RealtimeProvider } from "@/contexts/RealtimeProvider";
 import { TenantViewProvider } from "@/contexts/TenantViewContext";
+import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Leads from "./pages/Leads";
@@ -28,6 +29,9 @@ import NotFound from "./pages/NotFound";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, session } = useAuth();
+  
+  // Manter sessão ativa mesmo quando a aba perde o foco
+  useSessionPersistence();
   
   if (loading) {
     return (
@@ -117,7 +121,7 @@ const App = () => (
                 path="/" 
                 element={
                   <ProtectedRoute>
-                    <Index />
+                    <Navigate to="/metrics" replace />
                   </ProtectedRoute>
                 } 
               />

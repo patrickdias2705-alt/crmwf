@@ -63,11 +63,11 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
     }
   };
 
-  // Detectar quando a página perde foco (troca de aba) e reabrir dialog se necessário
+  // Detectar quando a página perde foco (troca de aba) e manter dialog aberto
   useEffect(() => {
     const handleVisibilityChange = () => {
       // Quando a página volta a ter foco, verificar se há dados persistidos
-      if (!document.hidden && !open) {
+      if (!document.hidden) {
         const storageKey = 'form-persistence-create-lead';
         try {
           const saved = localStorage.getItem(storageKey);
@@ -84,9 +84,11 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                              parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
               
               if (hasData) {
-                // Se há dados persistidos, reabrir o dialog
-                setOpen(true);
-                setUserIntentionallyClosed(false);
+                // Se há dados persistidos, garantir que o dialog está aberto
+                if (!open) {
+                  setOpen(true);
+                  setUserIntentionallyClosed(false);
+                }
               }
             }
           }
@@ -96,9 +98,44 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       }
     };
 
+    // Prevenir recarregamento da página se houver dados no formulário
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const storageKey = 'form-persistence-create-lead';
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const age = Date.now() - parsed.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000;
+          
+          if (age < maxAge && parsed.data) {
+            const hasData = parsed.data.name || parsed.data.phone || parsed.data.email || 
+                           parsed.data.order_number || parsed.data.origin !== 'manual' ||
+                           parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
+            
+            if (hasData && open) {
+              // Não prevenir se o usuário intencionalmente fechou
+              if (!userIntentionallyClosed) {
+                // Salvar estado antes de sair
+                localStorage.setItem(storageKey, JSON.stringify({
+                  data: parsed.data,
+                  timestamp: Date.now()
+                }));
+              }
+            }
+          }
+        }
+      } catch (error) {
+        // Ignorar erros
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [open, userIntentionallyClosed]);
 

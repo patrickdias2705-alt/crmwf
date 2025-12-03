@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, FileText, X, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useFormPersistence } from '@/hooks/useFormPersistence';
@@ -41,6 +42,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [userIntentionallyClosed, setUserIntentionallyClosed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Form state
@@ -74,6 +76,91 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
       toast.info('Dados do formulário restaurados automaticamente');
     }
   );
+
+  // Controlar o fechamento do dialog - só fechar se o usuário clicar no X ou Cancelar
+  const handleOpenChange = (newOpen: boolean) => {
+    // Se está fechando e não foi intencional, manter aberto
+    if (!newOpen && !userIntentionallyClosed) {
+      // Não fechar - manter aberto
+      return;
+    }
+    
+    // Se foi intencional, fechar normalmente
+    if (!newOpen && userIntentionallyClosed) {
+      onOpenChange(false);
+      setUserIntentionallyClosed(false);
+      return;
+    }
+    
+    // Se está abrindo
+    if (newOpen) {
+      onOpenChange(true);
+      setUserIntentionallyClosed(false);
+    }
+  };
+
+  // Detectar quando a página perde foco (troca de aba) e manter dialog aberto
+  useEffect(() => {
+    if (!open || !lead) return;
+
+    const handleVisibilityChange = () => {
+      // Quando a página volta a ter foco, garantir que o dialog está aberto se houver dados
+      if (!document.hidden) {
+        const storageKey = `form-persistence-edit-lead-${lead.id}`;
+        try {
+          const saved = localStorage.getItem(storageKey);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const age = Date.now() - parsed.timestamp;
+            const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+            
+            if (age < maxAge && parsed.data && !userIntentionallyClosed) {
+              // Se há dados persistidos, garantir que o dialog está aberto
+              if (!open) {
+                onOpenChange(true);
+                setUserIntentionallyClosed(false);
+              }
+            }
+          }
+        } catch (error) {
+          // Ignorar erros
+        }
+      }
+    };
+
+    // Prevenir recarregamento da página se houver dados no formulário
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const storageKey = `form-persistence-edit-lead-${lead.id}`;
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const age = Date.now() - parsed.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000;
+          
+          if (age < maxAge && parsed.data && open) {
+            if (!userIntentionallyClosed) {
+              // Salvar estado antes de sair
+              localStorage.setItem(storageKey, JSON.stringify({
+                data: parsed.data,
+                timestamp: Date.now()
+              }));
+            }
+          }
+        }
+      } catch (error) {
+        // Ignorar erros
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [open, lead, userIntentionallyClosed, onOpenChange]);
 
   // Load stages when dialog opens
   useEffect(() => {
@@ -359,6 +446,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
 
       toast.success('Lead atualizado com sucesso!');
       clearPersistedData(); // Limpar dados persistidos após sucesso
+      setUserIntentionallyClosed(true); // Marcar como fechamento intencional
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -371,10 +459,47 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
   if (!lead) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh] overflow-y-auto [&>button]:hidden"
+        onEscapeKeyDown={(e) => {
+          // Prevenir fechamento com ESC - só fechar se for intencional
+          if (!userIntentionallyClosed) {
+            e.preventDefault();
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          // Prevenir fechamento ao clicar fora - só fechar se for intencional
+          if (!userIntentionallyClosed) {
+            e.preventDefault();
+          }
+        }}
+        onInteractOutside={(e) => {
+          // Prevenir fechamento ao interagir fora - só fechar se for intencional
+          if (!userIntentionallyClosed) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
-          <DialogTitle>Editar Lead</DialogTitle>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <DialogTitle>Editar Lead</DialogTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+              onClick={() => {
+                setUserIntentionallyClosed(true); // Marcar como fechamento intencional
+                clearPersistedData(); // Limpar dados quando fechar explicitamente
+                onOpenChange(false);
+              }}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">Fechar</span>
+            </Button>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -600,7 +725,15 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => {
+                setUserIntentionallyClosed(true); // Marcar como fechamento intencional
+                clearPersistedData(); // Limpar dados quando cancelar explicitamente
+                onOpenChange(false);
+              }}
+            >
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
