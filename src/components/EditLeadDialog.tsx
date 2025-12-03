@@ -282,15 +282,19 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             console.log('💰 Valor formatado para input:', formattedAmount);
             
             // Atualizar formData com dados do orçamento - FORÇAR atualização
-            setFormData(prev => {
-              const newData = {
-                ...prev,
-                budget_amount: formattedAmount || (prev.budget_amount || ''),
-                budget_description: budgetDocs.description || prev.budget_description || ''
-              };
-              console.log('📝 Atualizando formData com:', newData);
-              return newData;
-            });
+            // Usar setTimeout para garantir que o estado seja atualizado após o render
+            setTimeout(() => {
+              setFormData(prev => {
+                const newData = {
+                  ...prev,
+                  budget_amount: formattedAmount || (prev.budget_amount || ''),
+                  budget_description: budgetDocs.description || prev.budget_description || ''
+                };
+                console.log('📝 Atualizando formData com:', newData);
+                console.log('💰 Valor que será exibido no campo:', newData.budget_amount);
+                return newData;
+              });
+            }, 100);
 
             // Carregar PDF se existir
             if (budgetDocs.file_base64 || budgetDocs.file_url) {
@@ -752,10 +756,18 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                 id="budget_amount"
                 type="number"
                 step="0.01"
-                value={formData.budget_amount}
-                onChange={(e) => setFormData({ ...formData, budget_amount: e.target.value })}
+                value={formData.budget_amount || ''}
+                onChange={(e) => {
+                  console.log('✏️ Valor alterado pelo usuário:', e.target.value);
+                  setFormData({ ...formData, budget_amount: e.target.value });
+                }}
                 placeholder="0,00"
               />
+              {formData.budget_amount && (
+                <p className="text-xs text-muted-foreground">
+                  Valor atual: {formData.budget_amount}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
