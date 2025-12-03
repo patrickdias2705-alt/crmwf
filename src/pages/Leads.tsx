@@ -581,6 +581,7 @@ export default function Leads() {
           onOpenChange={setEditDialogOpen}
           lead={editingLead}
           onSuccess={() => {
+            console.log('🔄 Recarregando leads após edição...');
             fetchLeads();
             setEditingLead(null);
           }}
