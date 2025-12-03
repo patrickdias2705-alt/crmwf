@@ -19,27 +19,85 @@ export function useFormPersistence<T extends Record<string, any>>(
   const hasRestoredRef = useRef(false);
 
   // Salvar dados automaticamente quando o formulário muda (mesmo se não estiver aberto)
+  // Usar ref para garantir que sempre temos os dados mais recentes
+  const formDataRef = useRef(formData);
+  formDataRef.current = formData;
+
   useEffect(() => {
-    if (formData) {
+    // Função para salvar dados
+    const saveData = () => {
       try {
-        // Verificar se há dados válidos antes de salvar
-        const hasData = Object.values(formData).some(value => {
-          if (typeof value === 'string') return value.trim() !== '';
-          if (typeof value === 'number') return value !== 0;
-          return value !== null && value !== undefined;
-        });
-        
-        if (hasData) {
-          localStorage.setItem(storageKey, JSON.stringify({
-            data: formData,
-            timestamp: Date.now()
-          }));
+        const currentData = formDataRef.current;
+        if (currentData) {
+          // Verificar se há dados válidos antes de salvar
+          const hasData = Object.values(currentData).some(value => {
+            if (typeof value === 'string') return value.trim() !== '';
+            if (typeof value === 'number') return value !== 0;
+            return value !== null && value !== undefined;
+          });
+          
+          if (hasData) {
+            localStorage.setItem(storageKey, JSON.stringify({
+              data: currentData,
+              timestamp: Date.now()
+            }));
+            console.log('💾 Dados salvos automaticamente:', storageKey);
+          }
         }
       } catch (error) {
         console.warn('⚠️ Erro ao salvar formulário no localStorage:', error);
       }
-    }
+    };
+
+    // Salvar imediatamente
+    saveData();
+
+    // Salvar também com debounce para evitar muitas escritas
+    const timeoutId = setTimeout(saveData, 500);
+
+    return () => clearTimeout(timeoutId);
   }, [formData, storageKey]);
+
+  // Salvar dados antes de qualquer recarregamento ou fechamento
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      try {
+        const currentData = formDataRef.current;
+        if (currentData) {
+          const hasData = Object.values(currentData).some(value => {
+            if (typeof value === 'string') return value.trim() !== '';
+            if (typeof value === 'number') return value !== 0;
+            return value !== null && value !== undefined;
+          });
+          
+          if (hasData) {
+            localStorage.setItem(storageKey, JSON.stringify({
+              data: currentData,
+              timestamp: Date.now()
+            }));
+            console.log('💾 Dados salvos antes de recarregar:', storageKey);
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao salvar antes de recarregar:', error);
+      }
+    };
+
+    // Salvar quando a página perde foco
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleBeforeUnload();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [storageKey]);
 
   // Restaurar dados quando o formulário é aberto
   useEffect(() => {

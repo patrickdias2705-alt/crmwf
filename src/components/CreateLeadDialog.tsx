@@ -50,14 +50,17 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                          parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
           
           if (hasData) {
-            console.log('📋 Restaurando dados do formulário após recarregamento');
+            console.log('📋 Restaurando dados do formulário após recarregamento:', parsed.data);
+            // Restaurar dados imediatamente
             setFormData(parsed.data);
             // Reabrir o dialog se houver dados
-            if (!internalOpen) {
-              setInternalOpen(true);
-              setUserIntentionallyClosed(false);
-            }
-            toast.info('Dados do formulário restaurados automaticamente');
+            setTimeout(() => {
+              if (!internalOpen && !userIntentionallyClosed) {
+                setInternalOpen(true);
+                setUserIntentionallyClosed(false);
+                toast.info('Dados do formulário restaurados automaticamente');
+              }
+            }, 100);
           }
         }
       }
@@ -185,7 +188,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [internalOpen, userIntentionallyClosed]);
+  }, [internalOpen, userIntentionallyClosed, formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
