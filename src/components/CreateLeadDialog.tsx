@@ -178,10 +178,12 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handleVisibilityChangeSave);
     window.addEventListener('beforeunload', handleBeforeUnload);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChangeSave);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [internalOpen, userIntentionallyClosed, formData]);
