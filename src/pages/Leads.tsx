@@ -102,18 +102,21 @@ export default function Leads() {
         return;
       }
 
-      // Buscar orçamentos em aberto da tabela budget_documents
+      // Buscar orçamentos (abertos e vendidos) da tabela budget_documents
       const leadIds = data?.map(l => l.id) || [];
+      let budgetMap = new Map<string, BudgetDocument[]>();
       let leadsWithBudgets = new Set<string>();
       
       if (leadIds.length > 0) {
         try {
           console.log('🔍 Buscando orçamentos para', leadIds.length, 'leads');
+          // Buscar orçamentos abertos E vendidos para exibir todos
           const { data: budgetDocsData, error: budgetError } = await supabase
             .from('budget_documents')
-        .select('lead_id')
+            .select('id, lead_id, file_name, file_base64, file_url, amount, description, status')
             .in('lead_id', leadIds)
-            .eq('status', 'aberto'); // Apenas orçamentos em aberto
+            .in('status', ['aberto', 'vendido']) // Buscar abertos e vendidos
+            .order('created_at', { ascending: false });
 
           if (budgetError) {
             console.error('❌ Erro ao buscar orçamentos da tabela:', budgetError);
@@ -133,7 +136,21 @@ export default function Leads() {
             );
           } else {
             console.log('✅ Orçamentos encontrados:', budgetDocsData?.length || 0);
-            leadsWithBudgets = new Set(budgetDocsData?.map(b => b.lead_id) || []);
+            
+            // Agrupar orçamentos por lead_id (pegar o mais recente de cada lead)
+            if (budgetDocsData && budgetDocsData.length > 0) {
+              budgetDocsData.forEach((budget: BudgetDocument) => {
+                if (!budgetMap.has(budget.lead_id)) {
+                  budgetMap.set(budget.lead_id, []);
+                  leadsWithBudgets.add(budget.lead_id);
+                }
+                // Adicionar apenas o mais recente de cada lead
+                const existing = budgetMap.get(budget.lead_id);
+                if (existing && existing.length === 0) {
+                  existing.push(budget);
+                }
+              });
+            }
           }
         } catch (error: any) {
           console.error('⚠️ Erro ao buscar orçamentos:', error?.message || error);
@@ -155,13 +172,17 @@ export default function Leads() {
                         stageName.toLowerCase().includes('bolso') ||
                         stageName.toLowerCase().includes('ganho');
         
+        // Buscar orçamento do lead
+        const leadBudgets = budgetMap.get(lead.id) || [];
+        
         return {
           ...lead,
           stage_name: stageName,
           tags: [] as string[],
           last_interaction: lead.created_at,
           assigned_to: undefined,
-          has_budget: leadsWithBudgets.has(lead.id),
+          has_budget: leadsWithBudgets.has(lead.id) || leadBudgets.length > 0,
+          budget_documents: leadBudgets,
           is_closed: isClosed
         };
       }) || [];
