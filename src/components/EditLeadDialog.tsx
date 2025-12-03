@@ -231,29 +231,43 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
   useEffect(() => {
     if (lead && open && !hasLoadedLeadDataRef.current) {
       console.log('📋 Carregando dados do lead:', lead);
+      console.log('📋 Lead ID:', lead.id);
       
       // Função para carregar dados do orçamento da tabela budget_documents
       const loadBudgetData = async () => {
         try {
+          console.log('🔍 Buscando orçamento na tabela budget_documents para lead:', lead.id);
+          
           // Buscar orçamento mais recente em aberto da tabela budget_documents
           const { data: budgetDocs, error: budgetError } = await supabase
             .from('budget_documents')
-            .select('amount, description, file_name, file_base64, file_url')
+            .select('amount, description, file_name, file_base64, file_url, status')
             .eq('lead_id', lead.id)
             .eq('status', 'aberto')
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
+          console.log('📊 Resultado da busca de orçamento:', { budgetDocs, budgetError });
+
+          if (budgetError) {
+            console.warn('⚠️ Erro ao buscar orçamento:', budgetError);
+          }
+
           if (!budgetError && budgetDocs) {
-            console.log('📋 Orçamento encontrado na tabela budget_documents:', budgetDocs);
+            console.log('✅ Orçamento encontrado na tabela budget_documents:', budgetDocs);
+            console.log('💰 Valor do orçamento:', budgetDocs.amount);
             
-            // Atualizar formData com dados do orçamento
-            setFormData(prev => ({
-              ...prev,
-              budget_amount: budgetDocs.amount?.toString() || prev.budget_amount || '',
-              budget_description: budgetDocs.description || prev.budget_description || ''
-            }));
+            // Atualizar formData com dados do orçamento - FORÇAR atualização
+            setFormData(prev => {
+              const newData = {
+                ...prev,
+                budget_amount: budgetDocs.amount ? budgetDocs.amount.toString() : (prev.budget_amount || ''),
+                budget_description: budgetDocs.description || prev.budget_description || ''
+              };
+              console.log('📝 Atualizando formData com:', newData);
+              return newData;
+            });
 
             // Carregar PDF se existir
             if (budgetDocs.file_base64 || budgetDocs.file_url) {
@@ -266,9 +280,11 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
               }
             }
             return; // Dados carregados da tabela, não precisa do fallback
+          } else {
+            console.log('ℹ️ Nenhum orçamento encontrado na tabela budget_documents, usando fallback dos fields');
           }
         } catch (error) {
-          console.warn('⚠️ Erro ao buscar orçamento da tabela:', error);
+          console.error('❌ Erro ao buscar orçamento da tabela:', error);
         }
 
         // Fallback: buscar dos fields do lead (compatibilidade com dados antigos)
@@ -280,8 +296,8 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         }
       };
 
-      // Carregar dados básicos do lead primeiro
-      setFormData({
+      // Carregar dados básicos do lead primeiro (com valores padrão)
+      const initialFormData = {
         name: lead.name || '',
         phone: lead.phone || '',
         email: lead.email || '',
@@ -291,10 +307,16 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         budget_amount: lead.fields?.budget_amount?.toString() || '',
         budget_description: lead.fields?.budget_description || '',
         order_number: lead.order_number || ''
-      });
+      };
+      
+      console.log('📝 Dados iniciais do formData:', initialFormData);
+      setFormData(initialFormData);
 
       // Carregar dados do orçamento (prioriza tabela budget_documents)
-      loadBudgetData();
+      // Aguardar um pouco para garantir que o formData inicial foi definido
+      loadBudgetData().then(() => {
+        console.log('✅ Carregamento de dados do orçamento concluído');
+      });
       
       hasLoadedLeadDataRef.current = true;
     }
