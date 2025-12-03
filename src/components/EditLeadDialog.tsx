@@ -232,39 +232,31 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
     if (lead && open && !hasLoadedLeadDataRef.current) {
       console.log('📋 Carregando dados do lead:', lead);
       
-      // Carregar dados do lead normalmente
-      setFormData({
-        name: lead.name || '',
-        phone: lead.phone || '',
-        email: lead.email || '',
-        source: lead.source || '',
-        stage_id: lead.stage_id || '',
-        notes: lead.fields?.notes || '',
-        budget_amount: lead.fields?.budget_amount || lead.fields?.budget_amount?.toString() || '',
-        budget_description: lead.fields?.budget_description || '',
-        order_number: lead.order_number || ''
-      });
+      // Função para carregar dados do orçamento da tabela budget_documents
+      const loadBudgetData = async () => {
+        try {
+          // Buscar orçamento mais recente em aberto da tabela budget_documents
+          const { data: budgetDocs, error: budgetError } = await supabase
+            .from('budget_documents')
+            .select('amount, description, file_name, file_base64, file_url')
+            .eq('lead_id', lead.id)
+            .eq('status', 'aberto')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-      // Load existing PDF if available
-      if (lead.fields?.budget_file_base64 && lead.fields?.budget_file_name) {
-        setExistingPdf({
-          name: lead.fields.budget_file_name,
-          base64: lead.fields.budget_file_base64
-        });
-      } else {
-        // Verificar se há PDF na tabela budget_documents
-        const checkBudgetDocuments = async () => {
-          try {
-            const { data: budgetDocs } = await supabase
-              .from('budget_documents')
-              .select('file_name, file_base64, file_url')
-              .eq('lead_id', lead.id)
-              .eq('status', 'aberto')
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
+          if (!budgetError && budgetDocs) {
+            console.log('📋 Orçamento encontrado na tabela budget_documents:', budgetDocs);
+            
+            // Atualizar formData com dados do orçamento
+            setFormData(prev => ({
+              ...prev,
+              budget_amount: budgetDocs.amount?.toString() || prev.budget_amount || '',
+              budget_description: budgetDocs.description || prev.budget_description || ''
+            }));
 
-            if (budgetDocs && (budgetDocs.file_base64 || budgetDocs.file_url)) {
+            // Carregar PDF se existir
+            if (budgetDocs.file_base64 || budgetDocs.file_url) {
               const fileUrl = budgetDocs.file_url || (budgetDocs.file_base64 ? `data:application/pdf;base64,${budgetDocs.file_base64}` : null);
               if (fileUrl) {
                 setExistingPdf({
@@ -273,13 +265,36 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                 });
               }
             }
-          } catch (error) {
-            // Ignorar erros
+            return; // Dados carregados da tabela, não precisa do fallback
           }
-        };
-        checkBudgetDocuments();
-        setExistingPdf(null);
-      }
+        } catch (error) {
+          console.warn('⚠️ Erro ao buscar orçamento da tabela:', error);
+        }
+
+        // Fallback: buscar dos fields do lead (compatibilidade com dados antigos)
+        if (lead.fields?.budget_file_base64 && lead.fields?.budget_file_name) {
+          setExistingPdf({
+            name: lead.fields.budget_file_name,
+            base64: lead.fields.budget_file_base64
+          });
+        }
+      };
+
+      // Carregar dados básicos do lead primeiro
+      setFormData({
+        name: lead.name || '',
+        phone: lead.phone || '',
+        email: lead.email || '',
+        source: lead.source || '',
+        stage_id: lead.stage_id || '',
+        notes: lead.fields?.notes || '',
+        budget_amount: lead.fields?.budget_amount?.toString() || '',
+        budget_description: lead.fields?.budget_description || '',
+        order_number: lead.order_number || ''
+      });
+
+      // Carregar dados do orçamento (prioriza tabela budget_documents)
+      loadBudgetData();
       
       hasLoadedLeadDataRef.current = true;
     }
