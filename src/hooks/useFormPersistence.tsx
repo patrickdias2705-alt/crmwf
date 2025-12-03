@@ -18,19 +18,28 @@ export function useFormPersistence<T extends Record<string, any>>(
   const storageKey = `form-persistence-${formKey}`;
   const hasRestoredRef = useRef(false);
 
-  // Salvar dados automaticamente quando o formulário muda
+  // Salvar dados automaticamente quando o formulário muda (mesmo se não estiver aberto)
   useEffect(() => {
-    if (isOpen && formData) {
+    if (formData) {
       try {
-        localStorage.setItem(storageKey, JSON.stringify({
-          data: formData,
-          timestamp: Date.now()
-        }));
+        // Verificar se há dados válidos antes de salvar
+        const hasData = Object.values(formData).some(value => {
+          if (typeof value === 'string') return value.trim() !== '';
+          if (typeof value === 'number') return value !== 0;
+          return value !== null && value !== undefined;
+        });
+        
+        if (hasData) {
+          localStorage.setItem(storageKey, JSON.stringify({
+            data: formData,
+            timestamp: Date.now()
+          }));
+        }
       } catch (error) {
         console.warn('⚠️ Erro ao salvar formulário no localStorage:', error);
       }
     }
-  }, [formData, isOpen, storageKey]);
+  }, [formData, storageKey]);
 
   // Restaurar dados quando o formulário é aberto
   useEffect(() => {

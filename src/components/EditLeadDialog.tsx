@@ -78,14 +78,48 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
     base64: string;
   } | null>(null);
 
+  // Restaurar dados imediatamente quando o componente monta ou quando o lead muda (após recarregamento)
+  useEffect(() => {
+    if (!lead) return;
+    
+    const storageKey = `form-persistence-edit-lead-${lead.id}`;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const age = Date.now() - parsed.timestamp;
+        const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+        
+        if (age < maxAge && parsed.data) {
+          console.log('📋 Restaurando dados do formulário após recarregamento');
+          setFormData(parsed.data);
+          // Reabrir o dialog se houver dados
+          if (!internalOpen) {
+            setInternalOpen(true);
+            onOpenChange(true);
+            setUserIntentionallyClosed(false);
+          }
+          toast.info('Dados do formulário restaurados automaticamente');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao restaurar dados após recarregamento:', error);
+    }
+  }, [lead?.id]); // Executar quando o lead muda (após recarregamento)
+
   // Persistência automática do formulário (apenas quando há um lead sendo editado)
   const { clearPersistedData } = useFormPersistence(
     lead ? `edit-lead-${lead.id}` : 'edit-lead',
     formData,
     open && !!lead,
     (restoredData) => {
-      setFormData(restoredData);
-      toast.info('Dados do formulário restaurados automaticamente');
+      // Só restaurar se não tiver sido restaurado no mount
+      const currentDataStr = JSON.stringify(formData);
+      const restoredDataStr = JSON.stringify(restoredData);
+      if (currentDataStr !== restoredDataStr) {
+        setFormData(restoredData);
+        toast.info('Dados do formulário restaurados automaticamente');
+      }
     }
   );
 

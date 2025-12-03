@@ -33,14 +33,52 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   // Estado controlado que só muda quando intencional
   const open = internalOpen;
 
+  // Restaurar dados imediatamente quando o componente monta (após recarregamento)
+  useEffect(() => {
+    const storageKey = 'form-persistence-create-lead';
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const age = Date.now() - parsed.timestamp;
+        const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+        
+        if (age < maxAge && parsed.data) {
+          // Verificar se há dados preenchidos (não apenas valores padrão)
+          const hasData = parsed.data.name || parsed.data.phone || parsed.data.email || 
+                         parsed.data.order_number || parsed.data.origin !== 'manual' ||
+                         parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
+          
+          if (hasData) {
+            console.log('📋 Restaurando dados do formulário após recarregamento');
+            setFormData(parsed.data);
+            // Reabrir o dialog se houver dados
+            if (!internalOpen) {
+              setInternalOpen(true);
+              setUserIntentionallyClosed(false);
+            }
+            toast.info('Dados do formulário restaurados automaticamente');
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao restaurar dados após recarregamento:', error);
+    }
+  }, []); // Executar apenas uma vez quando o componente monta
+
   // Persistência automática do formulário
   const { clearPersistedData } = useFormPersistence(
     'create-lead',
     formData,
     open,
     (restoredData) => {
-      setFormData(restoredData);
-      toast.info('Dados do formulário restaurados automaticamente');
+      // Só restaurar se não tiver sido restaurado no mount
+      const currentDataStr = JSON.stringify(formData);
+      const restoredDataStr = JSON.stringify(restoredData);
+      if (currentDataStr !== restoredDataStr) {
+        setFormData(restoredData);
+        toast.info('Dados do formulário restaurados automaticamente');
+      }
     }
   );
 
