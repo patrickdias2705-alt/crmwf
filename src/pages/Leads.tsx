@@ -444,7 +444,46 @@ export default function Leads() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {lead.fields?.budget_file_base64 ? (
+                        {lead.has_budget && lead.budget_documents && lead.budget_documents.length > 0 ? (
+                          <div className="space-y-1">
+                            <div className="text-xs font-medium text-green-800">
+                              💰 {new Intl.NumberFormat('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL'
+                              }).format(lead.budget_documents[0].amount || 0)}
+                            </div>
+                            {lead.budget_documents[0].description && (
+                              <div className="text-xs text-green-700 truncate max-w-32">
+                                📝 {lead.budget_documents[0].description}
+                              </div>
+                            )}
+                            {(lead.budget_documents[0].file_base64 || lead.budget_documents[0].file_url) ? (
+                              <button 
+                                onClick={() => {
+                                  const budget = lead.budget_documents![0];
+                                  const fileUrl = budget.file_url || 
+                                    (budget.file_base64 ? `data:application/pdf;base64,${budget.file_base64}` : null);
+                                  
+                                  if (fileUrl) {
+                                    const link = document.createElement('a');
+                                    link.href = fileUrl;
+                                    link.download = budget.file_name || 'documento.pdf';
+                                    link.target = '_blank';
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  }
+                                }}
+                                className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                              >
+                                📄 Baixar PDF
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sem documento</span>
+                            )}
+                          </div>
+                        ) : lead.fields?.budget_file_base64 ? (
+                          // Fallback para dados antigos em fields
                           <div className="space-y-1">
                             <div className="text-xs font-medium text-green-800">
                               💰 {new Intl.NumberFormat('pt-BR', {
@@ -457,7 +496,6 @@ export default function Leads() {
                             </div>
                             <button 
                               onClick={() => {
-                                // Criar link de download para o arquivo Base64
                                 const link = document.createElement('a');
                                 link.href = lead.fields.budget_file_base64;
                                 link.download = lead.fields.budget_file_name || 'documento.pdf';
@@ -466,7 +504,7 @@ export default function Leads() {
                                 link.click();
                                 document.body.removeChild(link);
                               }}
-                              className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700 animate-pulse"
+                              className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
                             >
                               📄 Baixar
                             </button>
