@@ -256,13 +256,36 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
 
           if (!budgetError && budgetDocs) {
             console.log('✅ Orçamento encontrado na tabela budget_documents:', budgetDocs);
-            console.log('💰 Valor do orçamento:', budgetDocs.amount);
+            console.log('💰 Valor do orçamento (raw):', budgetDocs.amount, typeof budgetDocs.amount);
+            
+            // Formatar valor para exibição no input
+            let formattedAmount = '';
+            if (budgetDocs.amount !== null && budgetDocs.amount !== undefined) {
+              // Converter para número e depois para string, removendo zeros desnecessários
+              const numAmount = typeof budgetDocs.amount === 'string' 
+                ? parseFloat(budgetDocs.amount) 
+                : Number(budgetDocs.amount);
+              
+              if (!isNaN(numAmount)) {
+                // Formatar com 2 casas decimais, mas remover zeros à direita se não forem necessários
+                formattedAmount = numAmount.toString();
+                // Se tiver casas decimais, garantir formato correto
+                if (formattedAmount.includes('.')) {
+                  const parts = formattedAmount.split('.');
+                  if (parts[1] && parts[1].length > 2) {
+                    formattedAmount = numAmount.toFixed(2);
+                  }
+                }
+              }
+            }
+            
+            console.log('💰 Valor formatado para input:', formattedAmount);
             
             // Atualizar formData com dados do orçamento - FORÇAR atualização
             setFormData(prev => {
               const newData = {
                 ...prev,
-                budget_amount: budgetDocs.amount ? budgetDocs.amount.toString() : (prev.budget_amount || ''),
+                budget_amount: formattedAmount || (prev.budget_amount || ''),
                 budget_description: budgetDocs.description || prev.budget_description || ''
               };
               console.log('📝 Atualizando formData com:', newData);
