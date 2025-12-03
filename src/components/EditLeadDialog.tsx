@@ -225,87 +225,62 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
   }, [open, user?.tenant_id]);
 
   // Flag para controlar se já carregou os dados do lead
-  const hasLoadedLeadDataRef = useRef<string | null>(null);
+  const hasLoadedLeadDataRef = useRef(false);
 
   // Load lead data when lead changes - SEMPRE carregar dados do lead quando abre
   useEffect(() => {
-    // Resetar flag quando o dialog fecha ou o lead muda
-    if (!open || !lead) {
-      hasLoadedLeadDataRef.current = null;
-      return;
-    }
-
-    // Se já carregou para este lead específico, não carregar novamente
-    if (hasLoadedLeadDataRef.current === lead.id) {
-      return;
-    }
-
-    const loadLeadData = async () => {
+    if (lead && open && !hasLoadedLeadDataRef.current) {
       console.log('📋 Carregando dados do lead:', lead);
       
-      // Primeiro, buscar o orçamento atual da tabela budget_documents
-      let currentBudgetAmount = '';
-      let currentBudgetDescription = '';
-      
-      try {
-        const { data: budgetDocs } = await supabase
-          .from('budget_documents')
-          .select('amount, description, file_name, file_base64, file_url')
-          .eq('lead_id', lead.id)
-          .eq('status', 'aberto')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      // Função para carregar dados do orçamento da tabela budget_documents
+      const loadBudgetData = async () => {
+        try {
+          // Buscar orçamento mais recente em aberto da tabela budget_documents
+          const { data: budgetDocs, error: budgetError } = await supabase
+            .from('budget_documents')
+            .select('amount, description, file_name, file_base64, file_url')
+            .eq('lead_id', lead.id)
+            .eq('status', 'aberto')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-        if (budgetDocs) {
-          // Usar valores da tabela budget_documents (fonte de verdade)
-          currentBudgetAmount = budgetDocs.amount ? budgetDocs.amount.toString() : '';
-          currentBudgetDescription = budgetDocs.description || '';
-          
-          // Carregar PDF se disponível
-          if (budgetDocs.file_base64 || budgetDocs.file_url) {
-            const fileUrl = budgetDocs.file_url || (budgetDocs.file_base64 ? `data:application/pdf;base64,${budgetDocs.file_base64}` : null);
-            if (fileUrl) {
-              setExistingPdf({
-                name: budgetDocs.file_name || 'orçamento.pdf',
-                base64: fileUrl
-              });
+          if (!budgetError && budgetDocs) {
+            console.log('📋 Orçamento encontrado na tabela budget_documents:', budgetDocs);
+            
+            // Atualizar formData com dados do orçamento
+            setFormData(prev => ({
+              ...prev,
+              budget_amount: budgetDocs.amount?.toString() || prev.budget_amount || '',
+              budget_description: budgetDocs.description || prev.budget_description || ''
+            }));
+
+            // Carregar PDF se existir
+            if (budgetDocs.file_base64 || budgetDocs.file_url) {
+              const fileUrl = budgetDocs.file_url || (budgetDocs.file_base64 ? `data:application/pdf;base64,${budgetDocs.file_base64}` : null);
+              if (fileUrl) {
+                setExistingPdf({
+                  name: budgetDocs.file_name,
+                  base64: fileUrl
+                });
+              }
             }
-          } else {
-            setExistingPdf(null);
+            return; // Dados carregados da tabela, não precisa do fallback
           }
-        } else {
-          // Se não encontrou na tabela, tentar dos fields (compatibilidade)
-          currentBudgetAmount = lead.fields?.budget_amount ? lead.fields.budget_amount.toString() : '';
-          currentBudgetDescription = lead.fields?.budget_description || '';
-          
-          // Verificar PDF nos fields
-          if (lead.fields?.budget_file_base64 && lead.fields?.budget_file_name) {
-            setExistingPdf({
-              name: lead.fields.budget_file_name,
-              base64: lead.fields.budget_file_base64
-            });
-          } else {
-            setExistingPdf(null);
-          }
+        } catch (error) {
+          console.warn('⚠️ Erro ao buscar orçamento da tabela:', error);
         }
-      } catch (error) {
-        console.warn('⚠️ Erro ao buscar orçamento da tabela budget_documents:', error);
-        // Fallback para fields
-        currentBudgetAmount = lead.fields?.budget_amount ? lead.fields.budget_amount.toString() : '';
-        currentBudgetDescription = lead.fields?.budget_description || '';
-        
+
+        // Fallback: buscar dos fields do lead (compatibilidade com dados antigos)
         if (lead.fields?.budget_file_base64 && lead.fields?.budget_file_name) {
           setExistingPdf({
             name: lead.fields.budget_file_name,
             base64: lead.fields.budget_file_base64
           });
-        } else {
-          setExistingPdf(null);
         }
-      }
-      
-      // Carregar dados do lead normalmente
+      };
+
+      // Carregar dados básicos do lead primeiro
       setFormData({
         name: lead.name || '',
         phone: lead.phone || '',
@@ -313,21 +288,22 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         source: lead.source || '',
         stage_id: lead.stage_id || '',
         notes: lead.fields?.notes || '',
-        budget_amount: currentBudgetAmount,
-        budget_description: currentBudgetDescription,
+        budget_amount: lead.fields?.budget_amount?.toString() || '',
+        budget_description: lead.fields?.budget_description || '',
         order_number: lead.order_number || ''
       });
-      
-      hasLoadedLeadDataRef.current = lead.id;
-      console.log('✅ Dados do lead carregados:', {
-        name: lead.name,
-        budget_amount: currentBudgetAmount,
-        budget_description: currentBudgetDescription
-      });
-    };
 
-    loadLeadData();
-  }, [lead?.id, open]);
+      // Carregar dados do orçamento (prioriza tabela budget_documents)
+      loadBudgetData();
+      
+      hasLoadedLeadDataRef.current = true;
+    }
+    
+    // Resetar flag quando o dialog fecha ou o lead muda
+    if (!open || !lead) {
+      hasLoadedLeadDataRef.current = false;
+    }
+  }, [lead, open]);
 
   const fetchStages = async () => {
     try {
@@ -463,60 +439,55 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
 
       if (updateError) throw updateError;
 
-      // Atualizar ou criar orçamento na tabela budget_documents
-      // Sempre atualizar se houver valor ou descrição (mesmo que vazio, para permitir remover)
+      // SEMPRE tentar atualizar orçamentos em aberto na tabela budget_documents
+      // Isso permite corrigir valores mesmo que sejam 0 ou vazios
       try {
         // Buscar orçamentos em aberto para este lead
         const { data: budgetDocs, error: budgetError } = await supabase
           .from('budget_documents')
-          .select('id')
+          .select('id, amount, description')
           .eq('lead_id', lead!.id)
           .eq('status', 'aberto')
           .order('created_at', { ascending: false })
           .limit(1);
 
-        const budgetAmount = formData.budget_amount ? parseFloat(formData.budget_amount) : null;
-        const budgetDescription = formData.budget_description || '';
-
         if (!budgetError && budgetDocs && budgetDocs.length > 0) {
           // Atualizar o orçamento mais recente em aberto
-          const updateData: any = {
-            amount: budgetAmount,
-            description: budgetDescription
-          };
-
-          const { error: updateBudgetError } = await supabase
-            .from('budget_documents')
-            .update(updateData)
-            .eq('id', budgetDocs[0].id);
-
-          if (updateBudgetError) {
-            console.warn('Aviso: Não foi possível atualizar o orçamento na tabela budget_documents:', updateBudgetError);
-            // Não falhar a operação principal se houver erro ao atualizar orçamento
-          } else {
-            console.log('✅ Orçamento atualizado na tabela budget_documents:', updateData);
+          const updateData: any = {};
+          
+          // Sempre atualizar amount se foi fornecido (mesmo que seja 0)
+          if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
+            const newAmount = parseFloat(formData.budget_amount);
+            if (!isNaN(newAmount)) {
+              updateData.amount = newAmount;
+            }
           }
-        } else if (budgetAmount || budgetDescription) {
-          // Se não existe orçamento em aberto mas há valor ou descrição, criar um novo
-          const { error: createBudgetError } = await supabase
-            .from('budget_documents')
-            .insert({
-              lead_id: lead!.id,
-              tenant_id: user!.tenant_id,
-              amount: budgetAmount,
-              description: budgetDescription,
-              status: 'aberto'
-            });
-
-          if (createBudgetError) {
-            console.warn('Aviso: Não foi possível criar o orçamento na tabela budget_documents:', createBudgetError);
-            // Não falhar a operação principal se houver erro ao criar orçamento
-          } else {
-            console.log('✅ Novo orçamento criado na tabela budget_documents');
+          
+          // Sempre atualizar description se foi fornecida
+          if (formData.budget_description !== undefined) {
+            updateData.description = formData.budget_description || '';
           }
+
+          // Atualizar se houver mudanças ou se quiser forçar atualização
+          if (Object.keys(updateData).length > 0) {
+            console.log('💾 Atualizando orçamento na tabela budget_documents:', updateData);
+            const { error: updateBudgetError } = await supabase
+              .from('budget_documents')
+              .update(updateData)
+              .eq('id', budgetDocs[0].id);
+
+            if (updateBudgetError) {
+              console.warn('⚠️ Aviso: Não foi possível atualizar o orçamento na tabela budget_documents:', updateBudgetError);
+              // Não falhar a operação principal se houver erro ao atualizar orçamento
+            } else {
+              console.log('✅ Orçamento atualizado com sucesso na tabela budget_documents');
+            }
+          }
+        } else if (budgetError) {
+          console.warn('⚠️ Erro ao buscar orçamento para atualização:', budgetError);
         }
       } catch (budgetUpdateError) {
-        console.warn('Aviso: Erro ao atualizar/criar orçamento na tabela budget_documents:', budgetUpdateError);
+        console.warn('⚠️ Aviso: Erro ao atualizar orçamento na tabela budget_documents:', budgetUpdateError);
         // Não falhar a operação principal se houver erro ao atualizar orçamento
       }
 
