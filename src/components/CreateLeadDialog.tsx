@@ -34,48 +34,84 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   const open = internalOpen;
 
   // Restaurar dados imediatamente quando o componente monta (após recarregamento)
-  // Usar chave específica por usuário/tenant para evitar conflitos
+  // Tentar chave específica primeiro, depois chave temporária
   useEffect(() => {
-    if (!user?.id || !user?.tenant_id) return;
-    
-    const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const age = Date.now() - parsed.timestamp;
-        const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+    const restoreData = () => {
+      // Tentar chave específica se o usuário estiver disponível
+      let storageKey = user?.id && user?.tenant_id
+        ? `form-persistence-create-lead-${user.tenant_id}-${user.id}`
+        : 'form-persistence-create-lead-temp';
+      
+      try {
+        let saved = localStorage.getItem(storageKey);
         
-        if (age < maxAge && parsed.data) {
-          // Verificar se há dados preenchidos (não apenas valores padrão)
-          const hasData = parsed.data.name || parsed.data.phone || parsed.data.email || 
-                         parsed.data.order_number || parsed.data.origin !== 'manual' ||
-                         parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
-          
-          if (hasData) {
-            console.log('📋 Restaurando dados do formulário após recarregamento:', parsed.data);
-            // Restaurar dados imediatamente
-            setFormData(parsed.data);
-            // Reabrir o dialog se houver dados
-            setTimeout(() => {
-              if (!internalOpen && !userIntentionallyClosed) {
-                setInternalOpen(true);
-                setUserIntentionallyClosed(false);
-                toast.info('Dados do formulário restaurados automaticamente');
-              }
-            }, 100);
+        // Se não encontrou na chave específica, tentar chave temporária
+        if (!saved && user?.id && user?.tenant_id) {
+          const tempKey = 'form-persistence-create-lead-temp';
+          saved = localStorage.getItem(tempKey);
+          if (saved) {
+            // Migrar para chave específica
+            const parsed = JSON.parse(saved);
+            const finalKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
+            localStorage.setItem(finalKey, JSON.stringify(parsed));
+            localStorage.removeItem(tempKey);
+            storageKey = finalKey;
+            saved = localStorage.getItem(finalKey);
           }
         }
+        
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const age = Date.now() - parsed.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+          
+          if (age < maxAge && parsed.data) {
+            // Verificar se há dados preenchidos (não apenas valores padrão)
+            const hasData = parsed.data.name || parsed.data.phone || parsed.data.email || 
+                           parsed.data.order_number || parsed.data.origin !== 'manual' ||
+                           parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
+            
+            if (hasData) {
+              console.log('📋 Restaurando dados do formulário após recarregamento:', parsed.data);
+              // Restaurar dados imediatamente
+              setFormData(parsed.data);
+              // Reabrir o dialog se houver dados
+              setTimeout(() => {
+                if (!internalOpen && !userIntentionallyClosed) {
+                  setInternalOpen(true);
+                  setUserIntentionallyClosed(false);
+                  toast.info('Dados do formulário restaurados automaticamente');
+                }
+              }, 100);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao restaurar dados após recarregamento:', error);
       }
-    } catch (error) {
-      console.warn('⚠️ Erro ao restaurar dados após recarregamento:', error);
+    };
+
+    // Tentar restaurar imediatamente
+    restoreData();
+    
+    // Se o usuário ainda não carregou, tentar novamente quando carregar
+    if (!user?.id || !user?.tenant_id) {
+      const checkInterval = setInterval(() => {
+        if (user?.id && user?.tenant_id) {
+          restoreData();
+          clearInterval(checkInterval);
+        }
+      }, 500);
+      
+      return () => clearInterval(checkInterval);
     }
-  }, [user?.id, user?.tenant_id]); // Executar quando o usuário estiver disponível
+  }, [user?.id, user?.tenant_id, internalOpen, userIntentionallyClosed]); // Executar quando o usuário estiver disponível
 
   // Persistência automática do formulário - usar chave específica por usuário/tenant
+  // Se o usuário ainda não carregou, usar chave temporária e migrar depois
   const formKey = user?.id && user?.tenant_id 
     ? `create-lead-${user.tenant_id}-${user.id}` 
-    : 'create-lead';
+    : 'create-lead-temp';
   
   const { clearPersistedData } = useFormPersistence(
     formKey,
@@ -91,6 +127,27 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       }
     }
   );
+
+  // Migrar dados da chave temporária para a chave específica quando o usuário carregar
+  useEffect(() => {
+    if (user?.id && user?.tenant_id) {
+      const tempKey = 'form-persistence-create-lead-temp';
+      const finalKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
+      
+      try {
+        const tempData = localStorage.getItem(tempKey);
+        if (tempData) {
+          const parsed = JSON.parse(tempData);
+          // Migrar para a chave final
+          localStorage.setItem(finalKey, JSON.stringify(parsed));
+          localStorage.removeItem(tempKey);
+          console.log('🔄 Dados migrados da chave temporária para a chave específica do usuário');
+        }
+      } catch (error) {
+        console.warn('⚠️ Erro ao migrar dados temporários:', error);
+      }
+    }
+  }, [user?.id, user?.tenant_id]);
 
   // Controlar o fechamento do dialog - só fechar se o usuário clicar no X ou Cancelar
   const handleOpenChange = (newOpen: boolean) => {
@@ -125,10 +182,29 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       // Quando a página volta a ter foco, verificar se há dados persistidos
-      if (!document.hidden && user?.id && user?.tenant_id) {
-        const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
+      if (!document.hidden) {
+        // Tentar chave específica primeiro, depois chave temporária
+        const storageKey = user?.id && user?.tenant_id
+          ? `form-persistence-create-lead-${user.tenant_id}-${user.id}`
+          : 'form-persistence-create-lead-temp';
+        
         try {
-          const saved = localStorage.getItem(storageKey);
+          let saved = localStorage.getItem(storageKey);
+          
+          // Se não encontrou na chave específica, tentar chave temporária
+          if (!saved && user?.id && user?.tenant_id) {
+            const tempKey = 'form-persistence-create-lead-temp';
+            saved = localStorage.getItem(tempKey);
+            if (saved) {
+              // Migrar para chave específica
+              const parsed = JSON.parse(saved);
+              const finalKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
+              localStorage.setItem(finalKey, JSON.stringify(parsed));
+              localStorage.removeItem(tempKey);
+              saved = localStorage.getItem(finalKey);
+            }
+          }
+          
           if (saved) {
             const parsed = JSON.parse(saved);
             const age = Date.now() - parsed.timestamp;
@@ -142,25 +218,30 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                              parsed.data.category !== 'varejo' || parsed.data.classification !== 'curva_a';
               
               if (hasData) {
+                // Restaurar dados
+                setFormData(parsed.data);
                 // Se há dados persistidos, garantir que o dialog está aberto
                 if (!internalOpen) {
                   setInternalOpen(true);
                   setUserIntentionallyClosed(false);
+                  toast.info('Dados do formulário restaurados automaticamente');
                 }
               }
             }
           }
         } catch (error) {
-          // Ignorar erros
+          console.warn('⚠️ Erro ao verificar dados persistidos:', error);
         }
       }
     };
 
     // Salvar dados quando a página perde foco (troca de aba)
     const handleBeforeUnload = () => {
-      if (!user?.id || !user?.tenant_id) return;
+      // Salvar sempre, mesmo se o usuário ainda não carregou
+      const storageKey = user?.id && user?.tenant_id
+        ? `form-persistence-create-lead-${user.tenant_id}-${user.id}`
+        : 'form-persistence-create-lead-temp';
       
-      const storageKey = `form-persistence-create-lead-${user.tenant_id}-${user.id}`;
       try {
         // Salvar dados atuais do formulário
         const hasData = formData.name || formData.phone || formData.email || 
@@ -172,7 +253,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
             data: formData,
             timestamp: Date.now()
           }));
-          console.log('💾 Dados salvos antes de sair da aba:', formData);
+          console.log('💾 Dados salvos antes de sair da aba:', storageKey, formData);
         }
       } catch (error) {
         console.warn('⚠️ Erro ao salvar antes de sair:', error);
