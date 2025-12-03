@@ -503,29 +503,33 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           .limit(1);
 
         if (!budgetError && budgetDocs && budgetDocs.length > 0) {
-          // Atualizar o orçamento mais recente em aberto
+          // IMPORTANTE: Sempre SUBSTITUIR o valor, nunca somar ou duplicar
+          // Atualizar o orçamento mais recente (vendido ou aberto)
           const updateData: any = {};
           
-          // Sempre atualizar amount se foi fornecido (mesmo que seja 0)
+          // Sempre SUBSTITUIR amount se foi fornecido (mesmo que seja 0)
+          // Isso é uma SUBSTITUIÇÃO, não uma adição
           if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
             const newAmount = parseFloat(formData.budget_amount);
             if (!isNaN(newAmount)) {
+              // SUBSTITUIR o valor existente pelo novo valor
               updateData.amount = newAmount;
+              console.log(`🔄 SUBSTITUINDO valor do orçamento: ${budgetDocs[0].amount} → ${newAmount}`);
             }
           }
           
-          // Sempre atualizar description se foi fornecida
+          // Sempre SUBSTITUIR description se foi fornecida
           if (formData.budget_description !== undefined) {
             updateData.description = formData.budget_description || '';
           }
 
-          // Atualizar se houver mudanças ou se quiser forçar atualização
+          // Atualizar se houver mudanças - sempre UPDATE (substituição), nunca INSERT
           if (Object.keys(updateData).length > 0) {
-            console.log('💾 Atualizando orçamento na tabela budget_documents:', updateData);
+            console.log('💾 SUBSTITUINDO orçamento na tabela budget_documents (UPDATE, não INSERT):', updateData);
             const { error: updateBudgetError } = await supabase
               .from('budget_documents')
-              .update(updateData)
-              .eq('id', budgetDocs[0].id);
+              .update(updateData) // UPDATE sempre substitui, nunca soma
+              .eq('id', budgetDocs[0].id); // Atualizar apenas o registro específico
 
             if (updateBudgetError) {
               console.warn('⚠️ Aviso: Não foi possível atualizar o orçamento na tabela budget_documents:', updateBudgetError);
@@ -533,14 +537,17 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             } else {
               console.log('✅ Orçamento atualizado com sucesso na tabela budget_documents');
               
-              // Se o orçamento está vendido, também atualizar a tabela sales
+              // Se o orçamento está vendido, também SUBSTITUIR o valor na tabela sales
+              // IMPORTANTE: Sempre UPDATE (substituição), nunca INSERT (criação de duplicata)
               if (budgetDocs[0].status === 'vendido' && budgetDocs[0].sale_id) {
                 try {
                   const saleUpdateData: any = {};
                   if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
                     const newAmount = parseFloat(formData.budget_amount);
                     if (!isNaN(newAmount)) {
+                      // SUBSTITUIR o valor existente pelo novo valor
                       saleUpdateData.amount = newAmount;
+                      console.log(`🔄 SUBSTITUINDO valor da venda: → ${newAmount}`);
                     }
                   }
                   if (formData.budget_description !== undefined) {
@@ -548,11 +555,13 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                   }
 
                   if (Object.keys(saleUpdateData).length > 0) {
-                    console.log('💾 Atualizando venda na tabela sales:', saleUpdateData);
+                    console.log('💾 SUBSTITUINDO venda na tabela sales (UPDATE, não INSERT):', saleUpdateData);
+                    // IMPORTANTE: Usar UPDATE com .eq() para garantir que atualiza apenas o registro existente
+                    // Nunca usar INSERT aqui para evitar duplicatas
                     const { error: saleUpdateError } = await supabase
                       .from('sales')
-                      .update(saleUpdateData)
-                      .eq('id', budgetDocs[0].sale_id);
+                      .update(saleUpdateData) // UPDATE sempre substitui, nunca soma
+                      .eq('id', budgetDocs[0].sale_id); // Atualizar apenas o registro específico
 
                     if (saleUpdateError) {
                       console.warn('⚠️ Aviso: Não foi possível atualizar a venda na tabela sales:', saleUpdateError);
@@ -575,12 +584,14 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                     .maybeSingle();
 
                   if (!salesCheckError && salesData) {
-                    console.log('💾 Venda encontrada na tabela sales, atualizando...');
+                    console.log('💾 Venda encontrada na tabela sales, SUBSTITUINDO valor...');
                     const saleUpdateData: any = {};
                     if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
                       const newAmount = parseFloat(formData.budget_amount);
                       if (!isNaN(newAmount)) {
+                        // SUBSTITUIR o valor existente pelo novo valor
                         saleUpdateData.amount = newAmount;
+                        console.log(`🔄 SUBSTITUINDO valor da venda: ${salesData.amount} → ${newAmount}`);
                       }
                     }
                     if (formData.budget_description !== undefined) {
@@ -588,10 +599,13 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                     }
 
                     if (Object.keys(saleUpdateData).length > 0) {
+                      // IMPORTANTE: Usar UPDATE com .eq() para garantir que atualiza apenas o registro existente
+                      // Nunca usar INSERT aqui para evitar duplicatas
+                      console.log('💾 SUBSTITUINDO venda na tabela sales (UPDATE, não INSERT):', saleUpdateData);
                       const { error: saleUpdateError } = await supabase
                         .from('sales')
-                        .update(saleUpdateData)
-                        .eq('id', salesData.id);
+                        .update(saleUpdateData) // UPDATE sempre substitui, nunca soma
+                        .eq('id', salesData.id); // Atualizar apenas o registro específico
 
                       if (saleUpdateError) {
                         console.warn('⚠️ Aviso: Não foi possível atualizar a venda na tabela sales:', saleUpdateError);
