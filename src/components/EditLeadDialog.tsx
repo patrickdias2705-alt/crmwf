@@ -238,12 +238,13 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         try {
           console.log('🔍 Buscando orçamento na tabela budget_documents para lead:', lead.id);
           
-          // Buscar orçamento mais recente em aberto da tabela budget_documents
+          // Buscar orçamento mais recente (vendido ou aberto) da tabela budget_documents
+          // Priorizar vendido se existir, senão buscar aberto
           const { data: budgetDocs, error: budgetError } = await supabase
             .from('budget_documents')
-            .select('amount, description, file_name, file_base64, file_url, status')
+            .select('amount, description, file_name, file_base64, file_url, status, sale_id')
             .eq('lead_id', lead.id)
-            .eq('status', 'aberto')
+            .in('status', ['aberto', 'vendido'])
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
@@ -488,15 +489,16 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
 
       if (updateError) throw updateError;
 
-      // SEMPRE tentar atualizar orçamentos em aberto na tabela budget_documents
+      // SEMPRE tentar atualizar orçamentos (abertos ou vendidos) na tabela budget_documents
+      // E também atualizar a tabela sales se o lead estiver vendido
       // Isso permite corrigir valores mesmo que sejam 0 ou vazios
       try {
-        // Buscar orçamentos em aberto para este lead
+        // Buscar orçamentos (abertos ou vendidos) para este lead
         const { data: budgetDocs, error: budgetError } = await supabase
           .from('budget_documents')
-          .select('id, amount, description')
+          .select('id, amount, description, status, sale_id')
           .eq('lead_id', lead!.id)
-          .eq('status', 'aberto')
+          .in('status', ['aberto', 'vendido'])
           .order('created_at', { ascending: false })
           .limit(1);
 
@@ -530,6 +532,78 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
               // Não falhar a operação principal se houver erro ao atualizar orçamento
             } else {
               console.log('✅ Orçamento atualizado com sucesso na tabela budget_documents');
+              
+              // Se o orçamento está vendido, também atualizar a tabela sales
+              if (budgetDocs[0].status === 'vendido' && budgetDocs[0].sale_id) {
+                try {
+                  const saleUpdateData: any = {};
+                  if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
+                    const newAmount = parseFloat(formData.budget_amount);
+                    if (!isNaN(newAmount)) {
+                      saleUpdateData.amount = newAmount;
+                    }
+                  }
+                  if (formData.budget_description !== undefined) {
+                    saleUpdateData.budget_description = formData.budget_description || '';
+                  }
+
+                  if (Object.keys(saleUpdateData).length > 0) {
+                    console.log('💾 Atualizando venda na tabela sales:', saleUpdateData);
+                    const { error: saleUpdateError } = await supabase
+                      .from('sales')
+                      .update(saleUpdateData)
+                      .eq('id', budgetDocs[0].sale_id);
+
+                    if (saleUpdateError) {
+                      console.warn('⚠️ Aviso: Não foi possível atualizar a venda na tabela sales:', saleUpdateError);
+                    } else {
+                      console.log('✅ Venda atualizada com sucesso na tabela sales');
+                    }
+                  }
+                } catch (saleUpdateError) {
+                  console.warn('⚠️ Aviso: Erro ao atualizar venda na tabela sales:', saleUpdateError);
+                }
+              } else {
+                // Se não tem sale_id mas o lead pode estar vendido, verificar na tabela sales
+                try {
+                  const { data: salesData, error: salesCheckError } = await supabase
+                    .from('sales')
+                    .select('id, amount')
+                    .eq('lead_id', lead!.id)
+                    .order('sold_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                  if (!salesCheckError && salesData) {
+                    console.log('💾 Venda encontrada na tabela sales, atualizando...');
+                    const saleUpdateData: any = {};
+                    if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
+                      const newAmount = parseFloat(formData.budget_amount);
+                      if (!isNaN(newAmount)) {
+                        saleUpdateData.amount = newAmount;
+                      }
+                    }
+                    if (formData.budget_description !== undefined) {
+                      saleUpdateData.budget_description = formData.budget_description || '';
+                    }
+
+                    if (Object.keys(saleUpdateData).length > 0) {
+                      const { error: saleUpdateError } = await supabase
+                        .from('sales')
+                        .update(saleUpdateData)
+                        .eq('id', salesData.id);
+
+                      if (saleUpdateError) {
+                        console.warn('⚠️ Aviso: Não foi possível atualizar a venda na tabela sales:', saleUpdateError);
+                      } else {
+                        console.log('✅ Venda atualizada com sucesso na tabela sales');
+                      }
+                    }
+                  }
+                } catch (salesCheckError) {
+                  console.warn('⚠️ Aviso: Erro ao verificar venda na tabela sales:', salesCheckError);
+                }
+              }
             }
           }
         } else if (budgetError) {
