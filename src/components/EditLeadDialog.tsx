@@ -38,12 +38,24 @@ interface EditLeadDialogProps {
   onSuccess: () => void;
 }
 
-export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLeadDialogProps) {
+export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSuccess }: EditLeadDialogProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [stages, setStages] = useState<Stage[]>([]);
   const [userIntentionallyClosed, setUserIntentionallyClosed] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(externalOpen);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sincronizar estado interno com prop externa quando abrir
+  useEffect(() => {
+    if (externalOpen) {
+      setInternalOpen(true);
+      setUserIntentionallyClosed(false);
+    }
+  }, [externalOpen]);
+
+  // Estado controlado que só muda quando intencional
+  const open = internalOpen;
   
   // Form state
   const [formData, setFormData] = useState({
@@ -79,14 +91,22 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
 
   // Controlar o fechamento do dialog - só fechar se o usuário clicar no X ou Cancelar
   const handleOpenChange = (newOpen: boolean) => {
-    // Se está fechando e não foi intencional, manter aberto
+    // Se está fechando e não foi intencional, IGNORAR e manter aberto
     if (!newOpen && !userIntentionallyClosed) {
-      // Não fechar - manter aberto
+      // Forçar a manter aberto - não atualizar o estado
+      console.log('🚫 Tentativa de fechar dialog bloqueada (não intencional)');
+      // Forçar o dialog a permanecer aberto usando setTimeout para garantir
+      setTimeout(() => {
+        if (!userIntentionallyClosed) {
+          setInternalOpen(true);
+        }
+      }, 0);
       return;
     }
     
     // Se foi intencional, fechar normalmente
     if (!newOpen && userIntentionallyClosed) {
+      setInternalOpen(false);
       onOpenChange(false);
       setUserIntentionallyClosed(false);
       return;
@@ -94,6 +114,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
     
     // Se está abrindo
     if (newOpen) {
+      setInternalOpen(true);
       onOpenChange(true);
       setUserIntentionallyClosed(false);
     }
@@ -116,7 +137,8 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
             
             if (age < maxAge && parsed.data && !userIntentionallyClosed) {
               // Se há dados persistidos, garantir que o dialog está aberto
-              if (!open) {
+              if (!internalOpen) {
+                setInternalOpen(true);
                 onOpenChange(true);
                 setUserIntentionallyClosed(false);
               }
@@ -138,7 +160,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
           const age = Date.now() - parsed.timestamp;
           const maxAge = 24 * 60 * 60 * 1000;
           
-          if (age < maxAge && parsed.data && open) {
+          if (age < maxAge && parsed.data && internalOpen) {
             if (!userIntentionallyClosed) {
               // Salvar estado antes de sair
               localStorage.setItem(storageKey, JSON.stringify({
@@ -160,7 +182,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [open, lead, userIntentionallyClosed, onOpenChange]);
+  }, [internalOpen, lead, userIntentionallyClosed, onOpenChange]);
 
   // Load stages when dialog opens
   useEffect(() => {
@@ -447,6 +469,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
       toast.success('Lead atualizado com sucesso!');
       clearPersistedData(); // Limpar dados persistidos após sucesso
       setUserIntentionallyClosed(true); // Marcar como fechamento intencional
+      setInternalOpen(false);
       onSuccess();
       onOpenChange(false);
     } catch (error) {
@@ -458,8 +481,31 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
 
   if (!lead) return null;
 
+  // Forçar a manter aberto se houver dados e não foi intencionalmente fechado
+  useEffect(() => {
+    if (!internalOpen && !userIntentionallyClosed && lead) {
+      const storageKey = `form-persistence-edit-lead-${lead.id}`;
+      try {
+        const saved = localStorage.getItem(storageKey);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const age = Date.now() - parsed.timestamp;
+          const maxAge = 24 * 60 * 60 * 1000;
+          
+          if (age < maxAge && parsed.data) {
+            // Reabrir se foi fechado acidentalmente
+            setInternalOpen(true);
+            onOpenChange(true);
+          }
+        }
+      } catch (error) {
+        // Ignorar erros
+      }
+    }
+  }, [internalOpen, userIntentionallyClosed, lead, onOpenChange]);
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={true}>
       <DialogContent 
         className="max-w-2xl max-h-[90vh] overflow-y-auto [&>button]:hidden"
         onEscapeKeyDown={(e) => {
@@ -493,6 +539,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
               onClick={() => {
                 setUserIntentionallyClosed(true); // Marcar como fechamento intencional
                 clearPersistedData(); // Limpar dados quando fechar explicitamente
+                setInternalOpen(false);
                 onOpenChange(false);
               }}
             >
@@ -731,6 +778,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSuccess }: EditLead
               onClick={() => {
                 setUserIntentionallyClosed(true); // Marcar como fechamento intencional
                 clearPersistedData(); // Limpar dados quando cancelar explicitamente
+                setInternalOpen(false);
                 onOpenChange(false);
               }}
             >
