@@ -225,28 +225,14 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
     }
   }, [open, user?.tenant_id]);
 
-  // Load lead data when lead changes (mas não sobrescrever se houver dados persistidos)
-  useEffect(() => {
-    if (lead && open) {
-      // Verificar se há dados persistidos antes de carregar do lead
-      const storageKey = `form-persistence-edit-lead-${lead.id}`;
-      try {
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const age = Date.now() - parsed.timestamp;
-          const maxAge = 24 * 60 * 60 * 1000; // 24 horas
-          
-          // Se há dados persistidos recentes, não sobrescrever
-          if (age < maxAge && parsed.data) {
-            console.log('📋 Mantendo dados persistidos do formulário');
-            return; // Não carregar dados do lead, manter os persistidos
-          }
-        }
-      } catch (error) {
-        // Se houver erro, continuar com o carregamento normal
-      }
+  // Flag para controlar se já carregou os dados do lead
+  const hasLoadedLeadDataRef = useRef(false);
 
+  // Load lead data when lead changes - SEMPRE carregar dados do lead quando abre
+  useEffect(() => {
+    if (lead && open && !hasLoadedLeadDataRef.current) {
+      console.log('📋 Carregando dados do lead:', lead);
+      
       // Carregar dados do lead normalmente
       setFormData({
         name: lead.name || '',
@@ -255,7 +241,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         source: lead.source || '',
         stage_id: lead.stage_id || '',
         notes: lead.fields?.notes || '',
-        budget_amount: lead.fields?.budget_amount || '',
+        budget_amount: lead.fields?.budget_amount || lead.fields?.budget_amount?.toString() || '',
         budget_description: lead.fields?.budget_description || '',
         order_number: lead.order_number || ''
       });
@@ -267,8 +253,41 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           base64: lead.fields.budget_file_base64
         });
       } else {
+        // Verificar se há PDF na tabela budget_documents
+        const checkBudgetDocuments = async () => {
+          try {
+            const { data: budgetDocs } = await supabase
+              .from('budget_documents')
+              .select('file_name, file_base64, file_url')
+              .eq('lead_id', lead.id)
+              .eq('status', 'aberto')
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+
+            if (budgetDocs && (budgetDocs.file_base64 || budgetDocs.file_url)) {
+              const fileUrl = budgetDocs.file_url || (budgetDocs.file_base64 ? `data:application/pdf;base64,${budgetDocs.file_base64}` : null);
+              if (fileUrl) {
+                setExistingPdf({
+                  name: budgetDocs.file_name,
+                  base64: fileUrl
+                });
+              }
+            }
+          } catch (error) {
+            // Ignorar erros
+          }
+        };
+        checkBudgetDocuments();
         setExistingPdf(null);
       }
+      
+      hasLoadedLeadDataRef.current = true;
+    }
+    
+    // Resetar flag quando o dialog fecha ou o lead muda
+    if (!open || !lead) {
+      hasLoadedLeadDataRef.current = false;
     }
   }, [lead, open]);
 
@@ -587,7 +606,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           {/* Informações Básicas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-white dark:text-white font-medium">Nome *</Label>
+              <Label htmlFor="name" className="text-slate-900 dark:text-white font-medium">Nome *</Label>
               <Input
                 id="name"
                 value={formData.name}
@@ -598,7 +617,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone" className="text-white dark:text-white font-medium">Telefone</Label>
+              <Label htmlFor="phone" className="text-slate-900 dark:text-white font-medium">Telefone</Label>
               <Input
                 id="phone"
                 value={formData.phone}
@@ -608,7 +627,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-white dark:text-white font-medium">Email</Label>
+              <Label htmlFor="email" className="text-slate-900 dark:text-white font-medium">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -619,7 +638,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="source" className="text-white dark:text-white font-medium">Fonte</Label>
+              <Label htmlFor="source" className="text-slate-900 dark:text-white font-medium">Fonte</Label>
               <Select value={formData.source} onValueChange={(value) => setFormData({ ...formData, source: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a fonte" />
@@ -641,7 +660,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stage" className="text-white dark:text-white font-medium">Estágio</Label>
+              <Label htmlFor="stage" className="text-slate-900 dark:text-white font-medium">Estágio</Label>
               <Select value={formData.stage_id} onValueChange={(value) => setFormData({ ...formData, stage_id: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o estágio" />
@@ -657,7 +676,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="budget_amount" className="text-white dark:text-white font-medium">Valor do Orçamento (R$)</Label>
+              <Label htmlFor="budget_amount" className="text-slate-900 dark:text-white font-medium">Valor do Orçamento (R$)</Label>
               <Input
                 id="budget_amount"
                 type="number"
@@ -669,7 +688,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="order_number" className="text-white dark:text-white font-medium">Número do Pedido</Label>
+              <Label htmlFor="order_number" className="text-slate-900 dark:text-white font-medium">Número do Pedido</Label>
               <Input
                 id="order_number"
                 value={formData.order_number}
@@ -681,7 +700,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
 
           {/* Descrição do Orçamento */}
           <div className="space-y-2">
-            <Label htmlFor="budget_description" className="text-white dark:text-white font-medium">Descrição do Orçamento</Label>
+            <Label htmlFor="budget_description" className="text-slate-900 dark:text-white font-medium">Descrição do Orçamento</Label>
             <Textarea
               id="budget_description"
               value={formData.budget_description}
@@ -795,7 +814,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
 
           {/* Notas */}
           <div className="space-y-2">
-            <Label htmlFor="notes" className="text-white dark:text-white font-medium">Notas</Label>
+            <Label htmlFor="notes" className="text-slate-900 dark:text-white font-medium">Notas</Label>
             <Textarea
               id="notes"
               value={formData.notes}
