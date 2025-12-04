@@ -30,7 +30,9 @@ interface Lead {
   last_interaction?: string;
   assigned_to?: string;
   has_budget?: boolean;
+  budget_documents?: BudgetDocument[];
   is_closed?: boolean;
+  is_sold?: boolean; // Flag para identificar se foi vendido (tem registro em sales)
   is_public?: boolean;
   order_number?: string;
   fields?: any;
