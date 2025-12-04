@@ -103,6 +103,7 @@ export default function Leads() {
       }
 
       // Buscar orçamentos (abertos e vendidos) da tabela budget_documents
+      // E também buscar vendas da tabela sales para leads vendidos
       const leadIds = data?.map(l => l.id) || [];
       let budgetMap = new Map<string, BudgetDocument[]>();
       let leadsWithBudgets = new Set<string>();
@@ -110,24 +111,88 @@ export default function Leads() {
       if (leadIds.length > 0) {
         try {
           console.log('🔍 Buscando orçamentos para', leadIds.length, 'leads');
-          // Buscar TODOS os orçamentos (não filtrar por status para garantir que apareçam todos)
-          // Priorizar abertos e vendidos, mas não excluir outros
+          
+          // 1. Buscar TODOS os orçamentos da tabela budget_documents
           const { data: budgetDocsData, error: budgetError } = await supabase
             .from('budget_documents')
             .select('id, lead_id, file_name, file_base64, file_url, amount, description, status')
             .in('lead_id', leadIds)
             // Não filtrar por status - buscar TODOS para garantir que apareçam
             .order('created_at', { ascending: false });
+          
+          // 2. Buscar vendas da tabela sales para leads vendidos (orçamentos que foram convertidos em vendas)
+          const { data: salesData, error: salesError } = await supabase
+            .from('sales')
+            .select('id, lead_id, amount, budget_description, budget_file_name, sold_at')
+            .in('lead_id', leadIds)
+            .order('sold_at', { ascending: false });
 
+          // Processar orçamentos da tabela budget_documents
           if (budgetError) {
             console.error('❌ Erro ao buscar orçamentos da tabela:', budgetError);
-            console.error('📋 Detalhes:', {
-              message: budgetError.message,
-              details: budgetError.details,
-              hint: budgetError.hint,
-              code: budgetError.code
+          } else if (budgetDocsData && budgetDocsData.length > 0) {
+            console.log('✅ Orçamentos encontrados na tabela budget_documents:', budgetDocsData.length);
+            
+            // Agrupar orçamentos por lead_id
+            const budgetsByLead = new Map<string, BudgetDocument[]>();
+            budgetDocsData.forEach((budget: BudgetDocument) => {
+              if (!budgetsByLead.has(budget.lead_id)) {
+                budgetsByLead.set(budget.lead_id, []);
+              }
+              budgetsByLead.get(budget.lead_id)!.push(budget);
             });
-            // Fallback: buscar dos fields do lead
+            
+            // Para cada lead, pegar o mais recente priorizando status
+            budgetsByLead.forEach((budgets, leadId) => {
+              if (budgets.length > 0) {
+                // Ordenar: primeiro abertos, depois vendidos, depois outros
+                const sorted = budgets.sort((a, b) => {
+                  if (a.status === 'aberto' && b.status !== 'aberto') return -1;
+                  if (a.status !== 'aberto' && b.status === 'aberto') return 1;
+                  if (a.status === 'vendido' && b.status !== 'vendido' && b.status !== 'aberto') return -1;
+                  if (a.status !== 'vendido' && a.status !== 'aberto' && b.status === 'vendido') return 1;
+                  return 0;
+                });
+                
+                const selectedBudget = sorted[0];
+                budgetMap.set(leadId, [selectedBudget]);
+                leadsWithBudgets.add(leadId);
+                console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${selectedBudget.amount}, status: ${selectedBudget.status}`);
+              }
+            });
+          }
+          
+          // Processar vendas da tabela sales (para leads vendidos que não têm orçamento em budget_documents)
+          if (salesError) {
+            console.error('❌ Erro ao buscar vendas da tabela sales:', salesError);
+          } else if (salesData && salesData.length > 0) {
+            console.log('✅ Vendas encontradas na tabela sales:', salesData.length);
+            
+            // Para cada venda, criar um "orçamento virtual" a partir dos dados da venda
+            salesData.forEach((sale: any) => {
+              // Só adicionar se o lead não tiver orçamento em budget_documents
+              if (!budgetMap.has(sale.lead_id)) {
+                const virtualBudget: BudgetDocument = {
+                  id: sale.id, // Usar ID da venda como ID do orçamento virtual
+                  lead_id: sale.lead_id,
+                  file_name: sale.budget_file_name || null,
+                  file_base64: null, // Vendas não têm file_base64, apenas file_name
+                  file_url: null,
+                  amount: sale.amount || 0,
+                  description: sale.budget_description || '',
+                  status: 'vendido'
+                };
+                
+                budgetMap.set(sale.lead_id, [virtualBudget]);
+                leadsWithBudgets.add(sale.lead_id);
+                console.log(`✅ Lead ${sale.lead_id}: venda encontrada - R$ ${sale.amount}, arquivo: ${sale.budget_file_name || 'sem arquivo'}`);
+              }
+            });
+          }
+          
+          // Fallback: buscar dos fields do lead se não encontrou nada
+          if (budgetMap.size === 0 && leadsWithBudgets.size === 0) {
+            console.log('⚠️ Nenhum orçamento encontrado, tentando fallback dos fields...');
             leadsWithBudgets = new Set(
               data?.filter((lead: any) => 
                 lead.fields?.budget_amount || 
@@ -135,44 +200,6 @@ export default function Leads() {
                 (lead.fields?.budget_documents && Array.isArray(lead.fields.budget_documents) && lead.fields.budget_documents.length > 0)
               ).map((l: any) => l.id) || []
             );
-          } else {
-            console.log('✅ Orçamentos encontrados:', budgetDocsData?.length || 0);
-            console.log('📋 Detalhes dos orçamentos:', budgetDocsData);
-            
-            // Agrupar orçamentos por lead_id (pegar o mais recente de cada lead)
-            if (budgetDocsData && budgetDocsData.length > 0) {
-              // Agrupar todos os orçamentos por lead_id primeiro
-              const budgetsByLead = new Map<string, BudgetDocument[]>();
-              budgetDocsData.forEach((budget: BudgetDocument) => {
-                if (!budgetsByLead.has(budget.lead_id)) {
-                  budgetsByLead.set(budget.lead_id, []);
-                }
-                budgetsByLead.get(budget.lead_id)!.push(budget);
-              });
-              
-              // Para cada lead, pegar o mais recente priorizando status
-              // Priorizar: aberto > vendido > outros (mantendo ordem de data)
-              budgetsByLead.forEach((budgets, leadId) => {
-                if (budgets.length > 0) {
-                  // Ordenar: primeiro abertos, depois vendidos, depois outros (mantendo ordem de data)
-                  const sorted = budgets.sort((a, b) => {
-                    if (a.status === 'aberto' && b.status !== 'aberto') return -1;
-                    if (a.status !== 'aberto' && b.status === 'aberto') return 1;
-                    if (a.status === 'vendido' && b.status !== 'vendido' && b.status !== 'aberto') return -1;
-                    if (a.status !== 'vendido' && a.status !== 'aberto' && b.status === 'vendido') return 1;
-                    return 0; // Manter ordem original (mais recente primeiro)
-                  });
-                  
-                  // Pegar o primeiro (priorizado) de cada lead
-                  const selectedBudget = sorted[0];
-                  budgetMap.set(leadId, [selectedBudget]);
-                  leadsWithBudgets.add(leadId);
-                  console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${selectedBudget.amount}, status: ${selectedBudget.status}, arquivo: ${selectedBudget.file_name || 'sem arquivo'}`);
-                }
-              });
-            } else {
-              console.warn('⚠️ Nenhum orçamento retornado da query, mas não houve erro');
-            }
           }
         } catch (error: any) {
           console.error('⚠️ Erro ao buscar orçamentos:', error?.message || error);
