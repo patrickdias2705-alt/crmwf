@@ -136,20 +136,30 @@ export default function Leads() {
             );
           } else {
             console.log('✅ Orçamentos encontrados:', budgetDocsData?.length || 0);
+            console.log('📋 Detalhes dos orçamentos:', budgetDocsData);
             
             // Agrupar orçamentos por lead_id (pegar o mais recente de cada lead)
             if (budgetDocsData && budgetDocsData.length > 0) {
+              // Agrupar todos os orçamentos por lead_id primeiro
+              const budgetsByLead = new Map<string, BudgetDocument[]>();
               budgetDocsData.forEach((budget: BudgetDocument) => {
-                if (!budgetMap.has(budget.lead_id)) {
-                  budgetMap.set(budget.lead_id, []);
-                  leadsWithBudgets.add(budget.lead_id);
+                if (!budgetsByLead.has(budget.lead_id)) {
+                  budgetsByLead.set(budget.lead_id, []);
                 }
-                // Adicionar apenas o mais recente de cada lead
-                const existing = budgetMap.get(budget.lead_id);
-                if (existing && existing.length === 0) {
-                  existing.push(budget);
+                budgetsByLead.get(budget.lead_id)!.push(budget);
+              });
+              
+              // Para cada lead, pegar apenas o mais recente (já está ordenado por created_at DESC)
+              budgetsByLead.forEach((budgets, leadId) => {
+                if (budgets.length > 0) {
+                  // Pegar o primeiro (mais recente) de cada lead
+                  budgetMap.set(leadId, [budgets[0]]);
+                  leadsWithBudgets.add(leadId);
+                  console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${budgets[0].amount}, arquivo: ${budgets[0].file_name || 'sem arquivo'}`);
                 }
               });
+            } else {
+              console.warn('⚠️ Nenhum orçamento retornado da query, mas não houve erro');
             }
           }
         } catch (error: any) {
@@ -553,7 +563,13 @@ export default function Leads() {
                           <BudgetDocumentUpload 
                             leadId={lead.id} 
                             leadName={lead.name}
-                            onDocumentUploaded={fetchLeads}
+                            onDocumentUploaded={() => {
+                              console.log('🔄 Recarregando leads após upload de orçamento para lead:', lead.id);
+                              // Adicionar pequeno delay para garantir que o banco foi atualizado
+                              setTimeout(() => {
+                                fetchLeads();
+                              }, 500);
+                            }}
                           />
                           <ActionButton
                             variant="ghost"
