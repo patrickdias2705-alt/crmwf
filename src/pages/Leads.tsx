@@ -527,6 +527,12 @@ export default function Leads() {
                               >
                                 📄 Baixar PDF
                               </button>
+                            ) : lead.budget_documents[0].file_name ? (
+                              // Se tem file_name mas não tem arquivo (venda), mostrar nome do arquivo
+                              <span className="text-xs text-blue-600">
+                                📄 {lead.budget_documents[0].file_name}
+                                {lead.budget_documents[0].status === 'vendido' && ' (vendido)'}
+                              </span>
                             ) : (
                               <span className="text-xs text-muted-foreground">Sem documento</span>
                             )}
