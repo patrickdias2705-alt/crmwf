@@ -109,6 +109,7 @@ export default function Leads() {
       const leadIds = data?.map(l => l.id) || [];
       let budgetMap = new Map<string, BudgetDocument[]>();
       let leadsWithBudgets = new Set<string>();
+      let soldLeadIds = new Set<string>(); // IDs de leads que foram vendidos - declarado fora do try para ser acessível
       
       if (leadIds.length > 0) {
         try {
