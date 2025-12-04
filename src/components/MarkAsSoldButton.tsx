@@ -178,16 +178,43 @@ export function MarkAsSoldButton({
       console.log('💾 Criando registro de venda PRIMEIRO (antes de mover lead):', saleData);
       console.log('📊 Tenant ID:', user?.tenant_id, '| User ID:', user?.id);
 
+      // ⚠️ VALIDAÇÕES CRÍTICAS ANTES DE CRIAR VENDA
+      if (!user?.id) {
+        console.error('❌ ERRO: User ID não encontrado');
+        toast.error('Erro: Usuário não identificado. Faça login novamente.');
+        return;
+      }
+
+      if (!user?.tenant_id) {
+        console.error('❌ ERRO: Tenant ID não encontrado');
+        toast.error('Erro: Tenant não identificado. Contate o suporte.');
+        return;
+      }
+
+      // Verificar se o tenant_id é válido (UUID)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(user.tenant_id)) {
+        console.error('❌ ERRO: Tenant ID inválido:', user.tenant_id);
+        toast.error('Erro: Tenant ID inválido. Contate o suporte.');
+        return;
+      }
+
       // Tentar inserir na tabela sales PRIMEIRO
       let saleCreated = false;
       let saleId: string | null = null;
+      let saleError: any = null;
       
       try {
-        const { data: insertedSale, error: saleError } = await supabase
+        console.log('🔍 Tentando inserir venda na tabela sales...');
+        console.log('📋 Dados da venda:', JSON.stringify(saleData, null, 2));
+        
+        const { data: insertedSale, error: error } = await supabase
           .from('sales')
           .insert(saleData)
           .select('id')
           .single();
+
+        saleError = error;
 
         if (saleError) {
           console.error('❌ ERRO CRÍTICO na tabela sales:', saleError);
@@ -197,9 +224,18 @@ export function MarkAsSoldButton({
             details: saleError.details,
             hint: saleError.hint,
             tenant_id: user?.tenant_id,
-            user_id: user?.id
+            user_id: user?.id,
+            saleData: saleData
           });
-          toast.error('Erro ao criar venda: ' + saleError.message);
+          
+          // Verificar se é erro de RLS
+          if (saleError.code === '42501' || saleError.message?.includes('permission') || saleError.message?.includes('policy')) {
+            console.error('❌ ERRO DE PERMISSÃO (RLS): A política RLS está bloqueando a inserção');
+            toast.error('Erro de permissão: Verifique as políticas RLS da tabela sales. Contate o suporte.');
+          } else {
+            toast.error('Erro ao criar venda: ' + saleError.message);
+          }
+          
           // NÃO mover o lead se a venda falhar
           return;
         } else {
@@ -210,13 +246,47 @@ export function MarkAsSoldButton({
           // Verificar se realmente foi criado (validação extra)
           if (!saleId) {
             console.error('❌ ERRO: Venda criada mas sem ID retornado');
+            console.error('❌ Dados retornados:', insertedSale);
             toast.error('Erro ao registrar venda. Tente novamente.');
             return;
           }
+
+          // ⚠️ VALIDAÇÃO EXTRA: Verificar se a venda realmente existe no banco
+          const { data: verifySale, error: verifyError } = await supabase
+            .from('sales')
+            .select('id, amount, tenant_id')
+            .eq('id', saleId)
+            .single();
+
+          if (verifyError || !verifySale) {
+            console.error('❌ ERRO CRÍTICO: Venda criada mas não encontrada no banco!');
+            console.error('❌ Erro de verificação:', verifyError);
+            console.error('❌ Sale ID:', saleId);
+            toast.error('Erro: Venda criada mas não verificada. Contate o suporte.');
+            saleCreated = false;
+            saleId = null;
+            return;
+          }
+
+          // Verificar se o tenant_id está correto
+          if (verifySale.tenant_id !== user.tenant_id) {
+            console.error('❌ ERRO CRÍTICO: Tenant ID da venda não corresponde ao usuário!');
+            console.error('❌ Tenant ID da venda:', verifySale.tenant_id);
+            console.error('❌ Tenant ID do usuário:', user.tenant_id);
+            // Deletar a venda incorreta
+            await supabase.from('sales').delete().eq('id', saleId);
+            toast.error('Erro: Inconsistência de dados. Contate o suporte.');
+            saleCreated = false;
+            saleId = null;
+            return;
+          }
+
+          console.log('✅ Venda verificada no banco de dados:', verifySale);
         }
       } catch (error: any) {
         console.error('❌ Erro ao inserir na tabela sales:', error);
         console.error('❌ Stack trace:', error?.stack);
+        console.error('❌ Tipo do erro:', error?.constructor?.name);
         toast.error('Erro ao criar venda: ' + (error?.message || 'Erro desconhecido'));
         // NÃO mover o lead se a venda falhar
         return;
@@ -225,6 +295,7 @@ export function MarkAsSoldButton({
       // Se não conseguiu criar a venda, não continuar (NÃO mover lead)
       if (!saleCreated || !saleId) {
         console.error('❌ Não foi possível criar a venda. Abortando operação.');
+        console.error('❌ Estado final:', { saleCreated, saleId, saleError });
         toast.error('Erro ao registrar venda. O lead não foi movido. Tente novamente.');
         return;
       }
@@ -242,13 +313,29 @@ export function MarkAsSoldButton({
 
       if (updateError) {
         console.error('❌ ERRO CRÍTICO: Venda criada mas não foi possível mover lead:', updateError);
+        console.error('❌ Detalhes do erro:', {
+          code: updateError.code,
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          leadId: leadId,
+          saleId: saleId
+        });
+        
         // Reverter a venda se não conseguir mover o lead
-        await supabase
+        const { error: deleteError } = await supabase
           .from('sales')
           .delete()
           .eq('id', saleId);
         
-        toast.error('Erro ao atualizar lead. A venda foi revertida. Tente novamente.');
+        if (deleteError) {
+          console.error('❌ ERRO CRÍTICO: Não foi possível reverter a venda!', deleteError);
+          console.error('❌ A venda foi criada mas o lead não foi movido. Sale ID:', saleId);
+          toast.error('Erro crítico: Venda criada mas lead não movido. Contate o suporte imediatamente.');
+        } else {
+          console.log('✅ Venda revertida com sucesso');
+          toast.error('Erro ao atualizar lead. A venda foi revertida. Tente novamente.');
+        }
         return;
       }
 
@@ -270,23 +357,23 @@ export function MarkAsSoldButton({
           console.log('✅ Origem atualizada para "carteirizado" devido à recompra');
         }
       }
-
-      // IMPORTANTE: Após passar para sales, APAGAR o orçamento da tabela budget_documents
+          
+          // IMPORTANTE: Após passar para sales, APAGAR o orçamento da tabela budget_documents
       // Mas só apagar se a venda foi criada com sucesso E o lead foi movido
-      if (latestDocument?.id && saleId) {
-        console.log('🗑️ Apagando orçamento da tabela budget_documents (dados já estão em sales)...');
-        const { error: deleteBudgetError } = await supabase
-          .from('budget_documents')
-          .delete()
-          .eq('id', latestDocument.id);
-        
-        if (deleteBudgetError) {
+          if (latestDocument?.id && saleId) {
+            console.log('🗑️ Apagando orçamento da tabela budget_documents (dados já estão em sales)...');
+            const { error: deleteBudgetError } = await supabase
+              .from('budget_documents')
+              .delete()
+              .eq('id', latestDocument.id);
+            
+            if (deleteBudgetError) {
           console.error('⚠️ Aviso: Não foi possível apagar o orçamento:', deleteBudgetError);
           // Não reverter a venda aqui, pois ela já foi criada e o lead já foi movido
           // Apenas logar o erro
-        } else {
-          console.log('✅ Orçamento apagado da tabela budget_documents (dados preservados em sales)');
-        }
+            } else {
+              console.log('✅ Orçamento apagado da tabela budget_documents (dados preservados em sales)');
+      }
       }
 
       // Criar evento de venda
