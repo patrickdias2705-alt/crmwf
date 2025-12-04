@@ -150,13 +150,24 @@ export default function Leads() {
                 budgetsByLead.get(budget.lead_id)!.push(budget);
               });
               
-              // Para cada lead, pegar apenas o mais recente (já está ordenado por created_at DESC)
+              // Para cada lead, pegar o mais recente priorizando status
+              // Priorizar: aberto > vendido > outros (mantendo ordem de data)
               budgetsByLead.forEach((budgets, leadId) => {
                 if (budgets.length > 0) {
-                  // Pegar o primeiro (mais recente) de cada lead
-                  budgetMap.set(leadId, [budgets[0]]);
+                  // Ordenar: primeiro abertos, depois vendidos, depois outros (mantendo ordem de data)
+                  const sorted = budgets.sort((a, b) => {
+                    if (a.status === 'aberto' && b.status !== 'aberto') return -1;
+                    if (a.status !== 'aberto' && b.status === 'aberto') return 1;
+                    if (a.status === 'vendido' && b.status !== 'vendido' && b.status !== 'aberto') return -1;
+                    if (a.status !== 'vendido' && a.status !== 'aberto' && b.status === 'vendido') return 1;
+                    return 0; // Manter ordem original (mais recente primeiro)
+                  });
+                  
+                  // Pegar o primeiro (priorizado) de cada lead
+                  const selectedBudget = sorted[0];
+                  budgetMap.set(leadId, [selectedBudget]);
                   leadsWithBudgets.add(leadId);
-                  console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${budgets[0].amount}, arquivo: ${budgets[0].file_name || 'sem arquivo'}`);
+                  console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${selectedBudget.amount}, status: ${selectedBudget.status}, arquivo: ${selectedBudget.file_name || 'sem arquivo'}`);
                 }
               });
             } else {
