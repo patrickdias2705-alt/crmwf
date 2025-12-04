@@ -158,9 +158,80 @@ export function MarkAsSoldButton({
         return;
       }
 
-      console.log('🎯 Movendo lead para estágio:', stages?.[0]?.name);
+      // ⚠️ ORDEM CRÍTICA: Criar venda PRIMEIRO, depois mover lead
+      // Isso garante que se a venda falhar, o lead não fica como "vendido" sem registro
+      
+      // Criar registro de venda na tabela dedicada ANTES de mover o lead
+      // IMPORTANTE: Copiar dados do orçamento para sales antes de apagar
+      const saleData = {
+        tenant_id: user?.tenant_id,
+        lead_id: leadId,
+        amount: budgetAmount, // Valor do documento mais recente
+        stage_id: closedStageId,
+        stage_name: stages?.[0]?.name,
+        sold_by: user?.id,
+        sold_by_name: user?.email || 'Usuário',
+        budget_description: latestDocument?.description || 'Venda realizada via botão',
+        budget_file_name: latestDocument?.file_name || 'Orçamento enviado'
+      };
 
-      // Mover lead para stage fechado
+      console.log('💾 Criando registro de venda PRIMEIRO (antes de mover lead):', saleData);
+      console.log('📊 Tenant ID:', user?.tenant_id, '| User ID:', user?.id);
+
+      // Tentar inserir na tabela sales PRIMEIRO
+      let saleCreated = false;
+      let saleId: string | null = null;
+      
+      try {
+        const { data: insertedSale, error: saleError } = await supabase
+          .from('sales')
+          .insert(saleData)
+          .select('id')
+          .single();
+
+        if (saleError) {
+          console.error('❌ ERRO CRÍTICO na tabela sales:', saleError);
+          console.error('❌ Detalhes do erro:', {
+            code: saleError.code,
+            message: saleError.message,
+            details: saleError.details,
+            hint: saleError.hint,
+            tenant_id: user?.tenant_id,
+            user_id: user?.id
+          });
+          toast.error('Erro ao criar venda: ' + saleError.message);
+          // NÃO mover o lead se a venda falhar
+          return;
+        } else {
+          console.log('✅ Registro de venda criado na tabela sales:', insertedSale);
+          saleCreated = true;
+          saleId = insertedSale?.id || null;
+          
+          // Verificar se realmente foi criado (validação extra)
+          if (!saleId) {
+            console.error('❌ ERRO: Venda criada mas sem ID retornado');
+            toast.error('Erro ao registrar venda. Tente novamente.');
+            return;
+          }
+        }
+      } catch (error: any) {
+        console.error('❌ Erro ao inserir na tabela sales:', error);
+        console.error('❌ Stack trace:', error?.stack);
+        toast.error('Erro ao criar venda: ' + (error?.message || 'Erro desconhecido'));
+        // NÃO mover o lead se a venda falhar
+        return;
+      }
+
+      // Se não conseguiu criar a venda, não continuar (NÃO mover lead)
+      if (!saleCreated || !saleId) {
+        console.error('❌ Não foi possível criar a venda. Abortando operação.');
+        toast.error('Erro ao registrar venda. O lead não foi movido. Tente novamente.');
+        return;
+      }
+
+      console.log('✅ Venda criada com sucesso. Agora movendo lead para estágio:', stages?.[0]?.name);
+
+      // SÓ AGORA mover lead para stage fechado (após venda criada com sucesso)
       const { error: updateError } = await supabase
         .from('leads')
         .update({ 
@@ -170,8 +241,15 @@ export function MarkAsSoldButton({
         .eq('id', leadId);
 
       if (updateError) {
-        console.error('Erro ao atualizar lead:', updateError);
-        throw updateError;
+        console.error('❌ ERRO CRÍTICO: Venda criada mas não foi possível mover lead:', updateError);
+        // Reverter a venda se não conseguir mover o lead
+        await supabase
+          .from('sales')
+          .delete()
+          .eq('id', saleId);
+        
+        toast.error('Erro ao atualizar lead. A venda foi revertida. Tente novamente.');
+        return;
       }
 
       console.log('✅ Lead movido para estágio fechado');
@@ -193,78 +271,22 @@ export function MarkAsSoldButton({
         }
       }
 
-      // Criar registro de venda na tabela dedicada
-      // IMPORTANTE: Copiar dados do orçamento para sales antes de apagar
-      // A tabela sales só tem: budget_description e budget_file_name
-      const saleData = {
-        tenant_id: user?.tenant_id,
-        lead_id: leadId,
-        amount: budgetAmount, // Valor do documento mais recente
-        stage_id: closedStageId,
-        stage_name: stages?.[0]?.name,
-        sold_by: user?.id,
-        sold_by_name: user?.email || 'Usuário',
-        budget_description: latestDocument?.description || 'Venda realizada via botão',
-        budget_file_name: latestDocument?.file_name || 'Orçamento enviado'
-      };
-
-      console.log('💾 Criando registro de venda:', saleData);
-
-      // Tentar inserir na tabela sales
-      let saleCreated = false;
-      let saleId: string | null = null;
-      
-      try {
-        const { data: insertedSale, error: saleError } = await supabase
-          .from('sales')
-          .insert(saleData)
-          .select('id')
-          .single();
-
-        if (saleError) {
-          console.error('❌ Erro na tabela sales:', saleError);
-          toast.error('Erro ao criar venda: ' + saleError.message);
-          return;
+      // IMPORTANTE: Após passar para sales, APAGAR o orçamento da tabela budget_documents
+      // Mas só apagar se a venda foi criada com sucesso E o lead foi movido
+      if (latestDocument?.id && saleId) {
+        console.log('🗑️ Apagando orçamento da tabela budget_documents (dados já estão em sales)...');
+        const { error: deleteBudgetError } = await supabase
+          .from('budget_documents')
+          .delete()
+          .eq('id', latestDocument.id);
+        
+        if (deleteBudgetError) {
+          console.error('⚠️ Aviso: Não foi possível apagar o orçamento:', deleteBudgetError);
+          // Não reverter a venda aqui, pois ela já foi criada e o lead já foi movido
+          // Apenas logar o erro
         } else {
-          console.log('✅ Registro de venda criado na tabela sales:', insertedSale);
-          saleCreated = true;
-          saleId = insertedSale?.id || null;
-          
-          // IMPORTANTE: Após passar para sales, APAGAR o orçamento da tabela budget_documents
-          // Mas só apagar se a venda foi criada com sucesso
-          if (latestDocument?.id && saleId) {
-            console.log('🗑️ Apagando orçamento da tabela budget_documents (dados já estão em sales)...');
-            const { error: deleteBudgetError } = await supabase
-              .from('budget_documents')
-              .delete()
-              .eq('id', latestDocument.id);
-            
-            if (deleteBudgetError) {
-              console.error('❌ ERRO CRÍTICO: Não foi possível apagar o orçamento:', deleteBudgetError);
-              // Se não conseguiu apagar, reverter a venda para manter consistência
-              await supabase
-                .from('sales')
-                .delete()
-                .eq('id', saleId);
-              
-              toast.error('Erro ao processar venda. Tente novamente.');
-              return;
-            } else {
-              console.log('✅ Orçamento apagado da tabela budget_documents (dados preservados em sales)');
-      }
-          }
+          console.log('✅ Orçamento apagado da tabela budget_documents (dados preservados em sales)');
         }
-      } catch (error: any) {
-        console.error('❌ Erro ao inserir na tabela sales:', error);
-        toast.error('Erro ao criar venda: ' + (error?.message || 'Erro desconhecido'));
-        return;
-      }
-
-      // Se não conseguiu criar a venda, não continuar
-      if (!saleCreated) {
-        console.error('❌ Não foi possível criar a venda');
-        toast.error('Erro ao registrar venda. Tente novamente.');
-          return;
       }
 
       // Criar evento de venda
