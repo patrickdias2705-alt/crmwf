@@ -110,12 +110,13 @@ export default function Leads() {
       if (leadIds.length > 0) {
         try {
           console.log('🔍 Buscando orçamentos para', leadIds.length, 'leads');
-          // Buscar orçamentos abertos E vendidos para exibir todos
+          // Buscar TODOS os orçamentos (não filtrar por status para garantir que apareçam todos)
+          // Priorizar abertos e vendidos, mas não excluir outros
           const { data: budgetDocsData, error: budgetError } = await supabase
             .from('budget_documents')
             .select('id, lead_id, file_name, file_base64, file_url, amount, description, status')
             .in('lead_id', leadIds)
-            .in('status', ['aberto', 'vendido']) // Buscar abertos e vendidos
+            // Não filtrar por status - buscar TODOS para garantir que apareçam
             .order('created_at', { ascending: false });
 
           if (budgetError) {
