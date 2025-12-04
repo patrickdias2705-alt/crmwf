@@ -6,11 +6,23 @@
 -- Conta: elaineportaporta@gmail.com
 
 -- PASSO 1: Identificar o tenant_id da Elaine
+-- Primeiro tentar na tabela users (pública)
 SELECT 
     'TENANT_ID_ELAINE' as tipo,
     u.id as user_id,
     u.email,
     u.tenant_id
+FROM public.users u
+WHERE u.email = 'elaineportaporta@gmail.com'
+
+UNION ALL
+
+-- Fallback: tentar na tabela auth.users
+SELECT 
+    'TENANT_ID_ELAINE' as tipo,
+    u.id::text as user_id,
+    u.email,
+    (u.raw_user_meta_data->>'tenant_id')::uuid as tenant_id
 FROM auth.users u
 WHERE u.email = 'elaineportaporta@gmail.com';
 
