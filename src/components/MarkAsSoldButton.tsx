@@ -207,6 +207,21 @@ export function MarkAsSoldButton({
       try {
         console.log('🔍 Tentando inserir venda na tabela sales...');
         console.log('📋 Dados da venda:', JSON.stringify(saleData, null, 2));
+        console.log('👤 User ID:', user?.id);
+        console.log('🏢 Tenant ID:', user?.tenant_id);
+        console.log('🔐 Auth UID:', (await supabase.auth.getUser()).data.user?.id);
+        
+        // Verificar se get_user_tenant_id() funcionaria (teste de permissão)
+        const { data: testQuery, error: testError } = await supabase
+          .from('users')
+          .select('tenant_id')
+          .eq('id', user?.id)
+          .single();
+        
+        console.log('🧪 Teste de tenant_id:', testQuery);
+        if (testError) {
+          console.error('⚠️ Erro ao buscar tenant_id do usuário:', testError);
+        }
         
         const { data: insertedSale, error: error } = await supabase
           .from('sales')
