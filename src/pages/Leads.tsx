@@ -140,7 +140,7 @@ export default function Leads() {
           // ⚠️ ORDEM CRÍTICA: Processar VENDAS PRIMEIRO (tabela sales)
           // Leads vendidos devem aparecer como "VENDIDO" e não como "orçamento"
           // Isso garante que vendas tenham prioridade sobre orçamentos abertos
-          const soldLeadIds = new Set<string>(); // IDs de leads que foram vendidos
+          // soldLeadIds já foi declarado fora do try para ser acessível
           
           if (salesError) {
             console.error('❌ Erro ao buscar vendas da tabela sales:', salesError);
@@ -257,6 +257,8 @@ export default function Leads() {
         }
       }
 
+      // ⚠️ CRÍTICO: soldLeadIds deve estar acessível aqui
+      // Se foi declarado dentro do try, precisa ser movido para fora ou passado
       const formattedLeads = data?.map(lead => {
         const stageName = (lead as any).stages?.name || 'Sem estágio';
         const isClosed = stageName.toLowerCase().includes('fechado') || 
@@ -264,8 +266,17 @@ export default function Leads() {
                         stageName.toLowerCase().includes('bolso') ||
                         stageName.toLowerCase().includes('ganho');
         
-        // Buscar orçamento do lead
+        // Buscar orçamento/venda do lead
         const leadBudgets = budgetMap.get(lead.id) || [];
+        
+        // ⚠️ CRÍTICO: Verificar se o lead foi vendido (tem registro na tabela sales)
+        const isSold = soldLeadIds.has(lead.id);
+        
+        // Se foi vendido mas o budget não está marcado como vendido, corrigir
+        if (isSold && leadBudgets[0] && leadBudgets[0].status !== 'vendido') {
+          leadBudgets[0].status = 'vendido';
+          console.log(`🔧 Corrigindo status do lead ${lead.id}: marcado como vendido`);
+        }
         
         return {
           ...lead,
@@ -275,7 +286,8 @@ export default function Leads() {
           assigned_to: undefined,
           has_budget: leadsWithBudgets.has(lead.id) || leadBudgets.length > 0,
           budget_documents: leadBudgets,
-          is_closed: isClosed
+          is_closed: isClosed || isSold, // Marcar como fechado se foi vendido
+          is_sold: isSold // Flag adicional para identificar vendas
         };
       }) || [];
 
