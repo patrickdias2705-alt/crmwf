@@ -29,9 +29,19 @@ WHERE u.email = 'elaineportaporta@gmail.com';
 -- PASSO 2: Verificar leads vendidos no fields que NÃO estão na tabela sales
 -- (Substitua 'TENANT_ID_AQUI' pelo tenant_id encontrado no PASSO 1)
 WITH tenant_elaine AS (
+    -- Tentar primeiro na tabela users (pública)
     SELECT tenant_id 
+    FROM public.users 
+    WHERE email = 'elaineportaporta@gmail.com'
+    LIMIT 1
+    
+    UNION ALL
+    
+    -- Fallback: tentar na tabela auth.users
+    SELECT (raw_user_meta_data->>'tenant_id')::uuid as tenant_id
     FROM auth.users 
     WHERE email = 'elaineportaporta@gmail.com'
+    AND raw_user_meta_data->>'tenant_id' IS NOT NULL
     LIMIT 1
 )
 SELECT 
@@ -64,9 +74,19 @@ ORDER BY l.updated_at DESC;
 -- PASSO 3: MIGRAR VENDAS DO FIELDS PARA A TABELA SALES
 -- Este comando insere as vendas faltantes na tabela sales
 WITH tenant_elaine AS (
+    -- Tentar primeiro na tabela users (pública)
     SELECT tenant_id 
+    FROM public.users 
+    WHERE email = 'elaineportaporta@gmail.com'
+    LIMIT 1
+    
+    UNION ALL
+    
+    -- Fallback: tentar na tabela auth.users
+    SELECT (raw_user_meta_data->>'tenant_id')::uuid as tenant_id
     FROM auth.users 
     WHERE email = 'elaineportaporta@gmail.com'
+    AND raw_user_meta_data->>'tenant_id' IS NOT NULL
     LIMIT 1
 ),
 leads_vendidos_sem_sales AS (
@@ -146,9 +166,19 @@ ON CONFLICT (lead_id) DO NOTHING;  -- Evitar duplicatas
 
 -- PASSO 4: Verificar quantas vendas foram migradas
 WITH tenant_elaine AS (
+    -- Tentar primeiro na tabela users (pública)
     SELECT tenant_id 
+    FROM public.users 
+    WHERE email = 'elaineportaporta@gmail.com'
+    LIMIT 1
+    
+    UNION ALL
+    
+    -- Fallback: tentar na tabela auth.users
+    SELECT (raw_user_meta_data->>'tenant_id')::uuid as tenant_id
     FROM auth.users 
     WHERE email = 'elaineportaporta@gmail.com'
+    AND raw_user_meta_data->>'tenant_id' IS NOT NULL
     LIMIT 1
 )
 SELECT 
@@ -162,9 +192,19 @@ AND s.created_at >= NOW() - INTERVAL '1 minute';  -- Vendas criadas nos últimos
 
 -- PASSO 5: Verificar total de vendas na tabela sales (após migração)
 WITH tenant_elaine AS (
+    -- Tentar primeiro na tabela users (pública)
     SELECT tenant_id 
+    FROM public.users 
+    WHERE email = 'elaineportaporta@gmail.com'
+    LIMIT 1
+    
+    UNION ALL
+    
+    -- Fallback: tentar na tabela auth.users
+    SELECT (raw_user_meta_data->>'tenant_id')::uuid as tenant_id
     FROM auth.users 
     WHERE email = 'elaineportaporta@gmail.com'
+    AND raw_user_meta_data->>'tenant_id' IS NOT NULL
     LIMIT 1
 )
 SELECT 
@@ -180,9 +220,19 @@ WHERE s.tenant_id = te.tenant_id;
 
 -- PASSO 6: Comparar com vendas no fields (deve ser igual ou menor após migração)
 WITH tenant_elaine AS (
+    -- Tentar primeiro na tabela users (pública)
     SELECT tenant_id 
+    FROM public.users 
+    WHERE email = 'elaineportaporta@gmail.com'
+    LIMIT 1
+    
+    UNION ALL
+    
+    -- Fallback: tentar na tabela auth.users
+    SELECT (raw_user_meta_data->>'tenant_id')::uuid as tenant_id
     FROM auth.users 
     WHERE email = 'elaineportaporta@gmail.com'
+    AND raw_user_meta_data->>'tenant_id' IS NOT NULL
     LIMIT 1
 )
 SELECT 
