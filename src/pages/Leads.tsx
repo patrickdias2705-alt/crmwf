@@ -135,7 +135,58 @@ export default function Leads() {
             .eq('status', 'vendido')
             .order('created_at', { ascending: false });
 
-          // Processar orçamentos da tabela budget_documents
+          // ⚠️ ORDEM CRÍTICA: Processar VENDAS PRIMEIRO (tabela sales)
+          // Leads vendidos devem aparecer como "VENDIDO" e não como "orçamento"
+          // Isso garante que vendas tenham prioridade sobre orçamentos abertos
+          const soldLeadIds = new Set<string>(); // IDs de leads que foram vendidos
+          
+          if (salesError) {
+            console.error('❌ Erro ao buscar vendas da tabela sales:', salesError);
+          } else if (salesData && salesData.length > 0) {
+            console.log('✅ Vendas encontradas na tabela sales:', salesData.length);
+            
+            // Processar vendas PRIMEIRO - estas têm prioridade sobre orçamentos
+            salesData.forEach((sale: any) => {
+              soldLeadIds.add(sale.lead_id); // Marcar lead como vendido
+              
+              // Tentar encontrar arquivo do orçamento vendido relacionado
+              const relatedBudget = soldBudgetsData?.find((b: BudgetDocument) => 
+                b.lead_id === sale.lead_id && b.sale_id === sale.id
+              );
+              
+              const virtualBudget: BudgetDocument = {
+                id: sale.id, // Usar ID da venda como ID do orçamento virtual
+                lead_id: sale.lead_id,
+                file_name: sale.budget_file_name || relatedBudget?.file_name || null,
+                file_base64: relatedBudget?.file_base64 || null, // Tentar pegar do orçamento vendido
+                file_url: relatedBudget?.file_url || null, // Tentar pegar do orçamento vendido
+                amount: sale.amount || 0,
+                description: sale.budget_description || '',
+                status: 'vendido' // SEMPRE marcado como vendido quando vem de sales
+              };
+              
+              // VENDAS SEMPRE têm prioridade - sobrescrever qualquer orçamento existente
+              budgetMap.set(sale.lead_id, [virtualBudget]);
+              leadsWithBudgets.add(sale.lead_id);
+              console.log(`✅ Lead ${sale.lead_id}: VENDA (prioridade) - R$ ${sale.amount}, status: vendido`);
+            });
+          }
+          
+          // Processar orçamentos vendidos que ainda têm arquivo (status = 'vendido' na tabela)
+          if (!soldBudgetsError && soldBudgetsData && soldBudgetsData.length > 0) {
+            console.log('✅ Orçamentos vendidos com arquivo encontrados:', soldBudgetsData.length);
+            
+            soldBudgetsData.forEach((budget: BudgetDocument) => {
+              // Só adicionar se o lead NÃO tiver venda na tabela sales (vendas têm prioridade)
+              if (!soldLeadIds.has(budget.lead_id) && !budgetMap.has(budget.lead_id)) {
+                budgetMap.set(budget.lead_id, [budget]);
+                leadsWithBudgets.add(budget.lead_id);
+                console.log(`✅ Lead ${budget.lead_id}: orçamento vendido com arquivo - R$ ${budget.amount}`);
+              }
+            });
+          }
+          
+          // Processar orçamentos ABERTOS da tabela budget_documents (só se não for vendido)
           if (budgetError) {
             console.error('❌ Erro ao buscar orçamentos da tabela:', budgetError);
           } else if (budgetDocsData && budgetDocsData.length > 0) {
@@ -152,6 +203,13 @@ export default function Leads() {
             
             // Para cada lead, pegar o mais recente priorizando status
             budgetsByLead.forEach((budgets, leadId) => {
+              // ⚠️ CRÍTICO: Se o lead foi vendido (tem venda na tabela sales), NÃO processar orçamentos abertos
+              // Vendas têm prioridade absoluta sobre orçamentos
+              if (soldLeadIds.has(leadId)) {
+                console.log(`⏭️ Lead ${leadId}: já tem venda, ignorando orçamentos abertos`);
+                return; // Pular este lead - já foi processado como venda
+              }
+              
               if (budgets.length > 0) {
                 // Ordenar: primeiro abertos, depois vendidos, depois outros
                 const sorted = budgets.sort((a, b) => {
@@ -163,56 +221,12 @@ export default function Leads() {
                 });
                 
                 const selectedBudget = sorted[0];
-                budgetMap.set(leadId, [selectedBudget]);
-                leadsWithBudgets.add(leadId);
-                console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${selectedBudget.amount}, status: ${selectedBudget.status}`);
-              }
-            });
-          }
-          
-          // Processar orçamentos vendidos que ainda têm arquivo
-          if (!soldBudgetsError && soldBudgetsData && soldBudgetsData.length > 0) {
-            console.log('✅ Orçamentos vendidos com arquivo encontrados:', soldBudgetsData.length);
-            
-            soldBudgetsData.forEach((budget: BudgetDocument) => {
-              // Só adicionar se o lead não tiver orçamento aberto em budget_documents
-              if (!budgetMap.has(budget.lead_id)) {
-                budgetMap.set(budget.lead_id, [budget]);
-                leadsWithBudgets.add(budget.lead_id);
-                console.log(`✅ Lead ${budget.lead_id}: orçamento vendido com arquivo - R$ ${budget.amount}`);
-              }
-            });
-          }
-          
-          // Processar vendas da tabela sales (para leads vendidos que não têm orçamento em budget_documents)
-          if (salesError) {
-            console.error('❌ Erro ao buscar vendas da tabela sales:', salesError);
-          } else if (salesData && salesData.length > 0) {
-            console.log('✅ Vendas encontradas na tabela sales:', salesData.length);
-            
-            // Para cada venda, criar um "orçamento virtual" a partir dos dados da venda
-            salesData.forEach((sale: any) => {
-              // Só adicionar se o lead não tiver orçamento em budget_documents (aberto ou vendido)
-              if (!budgetMap.has(sale.lead_id)) {
-                // Tentar encontrar arquivo do orçamento vendido relacionado
-                const relatedBudget = soldBudgetsData?.find((b: BudgetDocument) => 
-                  b.lead_id === sale.lead_id && b.sale_id === sale.id
-                );
-                
-                const virtualBudget: BudgetDocument = {
-                  id: sale.id, // Usar ID da venda como ID do orçamento virtual
-                  lead_id: sale.lead_id,
-                  file_name: sale.budget_file_name || relatedBudget?.file_name || null,
-                  file_base64: relatedBudget?.file_base64 || null, // Tentar pegar do orçamento vendido
-                  file_url: relatedBudget?.file_url || null, // Tentar pegar do orçamento vendido
-                  amount: sale.amount || 0,
-                  description: sale.budget_description || '',
-                  status: 'vendido'
-                };
-                
-                budgetMap.set(sale.lead_id, [virtualBudget]);
-                leadsWithBudgets.add(sale.lead_id);
-                console.log(`✅ Lead ${sale.lead_id}: venda encontrada - R$ ${sale.amount}, arquivo: ${virtualBudget.file_name || 'sem arquivo'}, tem base64: ${!!virtualBudget.file_base64}`);
+                // Só adicionar se não tiver venda (vendas têm prioridade)
+                if (!budgetMap.has(leadId)) {
+                  budgetMap.set(leadId, [selectedBudget]);
+                  leadsWithBudgets.add(leadId);
+                  console.log(`✅ Lead ${leadId}: orçamento encontrado - R$ ${selectedBudget.amount}, status: ${selectedBudget.status}`);
+                }
               }
             });
           }
@@ -522,12 +536,22 @@ export default function Leads() {
                       <TableCell>
                         {lead.has_budget && lead.budget_documents && lead.budget_documents.length > 0 ? (
                           <div className="space-y-1">
-                            <div className="text-xs font-medium text-green-800">
-                              💰 {new Intl.NumberFormat('pt-BR', {
-                                style: 'currency',
-                                currency: 'BRL'
-                              }).format(lead.budget_documents[0].amount || 0)}
-                            </div>
+                            {/* Mostrar como VENDIDO se tiver registro na tabela sales */}
+                            {lead.is_sold || lead.budget_documents[0].status === 'vendido' ? (
+                              <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">
+                                ✅ VENDIDO: {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL'
+                                }).format(lead.budget_documents[0].amount || 0)}
+                              </div>
+                            ) : (
+                              <div className="text-xs font-medium text-green-800">
+                                💰 {new Intl.NumberFormat('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL'
+                                }).format(lead.budget_documents[0].amount || 0)}
+                              </div>
+                            )}
                             {lead.budget_documents[0].description && (
                               <div className="text-xs text-green-700 truncate max-w-32">
                                 📝 {lead.budget_documents[0].description}
