@@ -126,6 +126,14 @@ export default function Leads() {
             .select('id, lead_id, amount, budget_description, budget_file_name, sold_at')
             .in('lead_id', leadIds)
             .order('sold_at', { ascending: false });
+          
+          // 3. Buscar orçamentos vendidos que ainda têm arquivo (status = 'vendido' mas ainda na tabela)
+          const { data: soldBudgetsData, error: soldBudgetsError } = await supabase
+            .from('budget_documents')
+            .select('id, lead_id, file_name, file_base64, file_url, amount, description, status, sale_id')
+            .in('lead_id', leadIds)
+            .eq('status', 'vendido')
+            .order('created_at', { ascending: false });
 
           // Processar orçamentos da tabela budget_documents
           if (budgetError) {
@@ -162,6 +170,20 @@ export default function Leads() {
             });
           }
           
+          // Processar orçamentos vendidos que ainda têm arquivo
+          if (!soldBudgetsError && soldBudgetsData && soldBudgetsData.length > 0) {
+            console.log('✅ Orçamentos vendidos com arquivo encontrados:', soldBudgetsData.length);
+            
+            soldBudgetsData.forEach((budget: BudgetDocument) => {
+              // Só adicionar se o lead não tiver orçamento aberto em budget_documents
+              if (!budgetMap.has(budget.lead_id)) {
+                budgetMap.set(budget.lead_id, [budget]);
+                leadsWithBudgets.add(budget.lead_id);
+                console.log(`✅ Lead ${budget.lead_id}: orçamento vendido com arquivo - R$ ${budget.amount}`);
+              }
+            });
+          }
+          
           // Processar vendas da tabela sales (para leads vendidos que não têm orçamento em budget_documents)
           if (salesError) {
             console.error('❌ Erro ao buscar vendas da tabela sales:', salesError);
@@ -170,14 +192,19 @@ export default function Leads() {
             
             // Para cada venda, criar um "orçamento virtual" a partir dos dados da venda
             salesData.forEach((sale: any) => {
-              // Só adicionar se o lead não tiver orçamento em budget_documents
+              // Só adicionar se o lead não tiver orçamento em budget_documents (aberto ou vendido)
               if (!budgetMap.has(sale.lead_id)) {
+                // Tentar encontrar arquivo do orçamento vendido relacionado
+                const relatedBudget = soldBudgetsData?.find((b: BudgetDocument) => 
+                  b.lead_id === sale.lead_id && b.sale_id === sale.id
+                );
+                
                 const virtualBudget: BudgetDocument = {
                   id: sale.id, // Usar ID da venda como ID do orçamento virtual
                   lead_id: sale.lead_id,
-                  file_name: sale.budget_file_name || null,
-                  file_base64: null, // Vendas não têm file_base64, apenas file_name
-                  file_url: null,
+                  file_name: sale.budget_file_name || relatedBudget?.file_name || null,
+                  file_base64: relatedBudget?.file_base64 || null, // Tentar pegar do orçamento vendido
+                  file_url: relatedBudget?.file_url || null, // Tentar pegar do orçamento vendido
                   amount: sale.amount || 0,
                   description: sale.budget_description || '',
                   status: 'vendido'
@@ -185,7 +212,7 @@ export default function Leads() {
                 
                 budgetMap.set(sale.lead_id, [virtualBudget]);
                 leadsWithBudgets.add(sale.lead_id);
-                console.log(`✅ Lead ${sale.lead_id}: venda encontrada - R$ ${sale.amount}, arquivo: ${sale.budget_file_name || 'sem arquivo'}`);
+                console.log(`✅ Lead ${sale.lead_id}: venda encontrada - R$ ${sale.amount}, arquivo: ${virtualBudget.file_name || 'sem arquivo'}, tem base64: ${!!virtualBudget.file_base64}`);
               }
             });
           }
