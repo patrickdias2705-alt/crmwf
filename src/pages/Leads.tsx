@@ -354,6 +354,18 @@ export default function Leads() {
   };
 
   const handleMarkAsSold = async (leadId: string, leadName: string) => {
+    // ⚠️ ATENÇÃO: Esta função está DEPRECADA
+    // Use o componente MarkAsSoldButton que tem toda a lógica correta
+    // Esta função não cria venda na tabela sales - apenas move o lead
+    // Mantida apenas para compatibilidade, mas não deve ser usada
+    
+    console.warn('⚠️ handleMarkAsSold em Leads.tsx está DEPRECADA. Use MarkAsSoldButton.');
+    toast.error('Use o botão "Marcar como Vendido" do componente para garantir que a venda seja registrada corretamente.');
+    
+    // Não fazer nada - deixar o MarkAsSoldButton fazer o trabalho
+    return;
+    
+    /* CÓDIGO ANTIGO (DEPRECADO) - NÃO CRIA VENDA NA TABELA SALES
     try {
       // Buscar stage "Dinheiro no bolso"
       const { data: stages } = await supabase
@@ -400,6 +412,7 @@ export default function Leads() {
       console.error('Error marking as sold:', error);
       toast.error('Erro ao marcar como vendido');
     }
+    */
   };
 
   if (loading) {
