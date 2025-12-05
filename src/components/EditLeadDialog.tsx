@@ -327,11 +327,19 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
       // Carregar dados básicos do lead primeiro (com valores padrão)
       // ⚠️ IMPORTANTE: Carregar origin primeiro, depois source como fallback
       // Isso garante que a origem marcada pelo usuário seja preservada
+      const loadedOrigin = lead.origin || lead.source || '';
+      console.log('📋 Carregando origem do lead:', {
+        lead_origin: lead.origin,
+        lead_source: lead.source,
+        loadedOrigin_final: loadedOrigin,
+        lead_id: lead.id
+      });
+      
       const initialFormData = {
         name: lead.name || '',
         phone: lead.phone || '',
         email: lead.email || '',
-        source: lead.origin || lead.source || '', // PRIORIZAR origin sobre source
+        source: loadedOrigin, // PRIORIZAR origin sobre source
         stage_id: lead.stage_id || '',
         notes: lead.fields?.notes || '',
         budget_amount: lead.fields?.budget_amount?.toString() || '',
@@ -477,6 +485,14 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
       // ⚠️ CRÍTICO: Preservar a origem escolhida pelo usuário
       // Não sobrescrever com "manual" - usar o valor que o usuário selecionou
       const originValue = formData.source || lead?.origin || lead?.source || 'manual';
+      
+      console.log('💾 Salvando origem do lead:', {
+        formData_source: formData.source,
+        lead_origin: lead?.origin,
+        lead_source: lead?.source,
+        originValue_final: originValue,
+        lead_id: lead!.id
+      });
       
       const { error: updateError } = await supabase
         .from('leads')
