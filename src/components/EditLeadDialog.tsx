@@ -321,15 +321,17 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             name: lead.fields.budget_file_name,
             base64: lead.fields.budget_file_base64
           });
-        }
-      };
+          }
+        };
 
       // Carregar dados básicos do lead primeiro (com valores padrão)
+      // ⚠️ IMPORTANTE: Carregar origin primeiro, depois source como fallback
+      // Isso garante que a origem marcada pelo usuário seja preservada
       const initialFormData = {
         name: lead.name || '',
         phone: lead.phone || '',
         email: lead.email || '',
-        source: lead.source || '',
+        source: lead.origin || lead.source || '', // PRIORIZAR origin sobre source
         stage_id: lead.stage_id || '',
         notes: lead.fields?.notes || '',
         budget_amount: lead.fields?.budget_amount?.toString() || '',
@@ -472,14 +474,18 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
   const updateLead = async (fieldsData: any, shouldUpdatePdfInBudget: boolean = false) => {
     try {
       // Update lead
+      // ⚠️ CRÍTICO: Preservar a origem escolhida pelo usuário
+      // Não sobrescrever com "manual" - usar o valor que o usuário selecionou
+      const originValue = formData.source || lead?.origin || lead?.source || 'manual';
+      
       const { error: updateError } = await supabase
         .from('leads')
         .update({
           name: formData.name,
           phone: formData.phone || null,
           email: formData.email || null,
-          origin: formData.source,
-          source: formData.source,
+          origin: originValue, // Usar valor escolhido pelo usuário
+          source: originValue, // Manter sincronizado
           stage_id: formData.stage_id,
           order_number: formData.order_number || null,
           fields: fieldsData
