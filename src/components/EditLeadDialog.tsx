@@ -483,8 +483,13 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
     try {
       // Update lead
       // ⚠️ CRÍTICO: Preservar a origem escolhida pelo usuário
-      // Não sobrescrever com "manual" - usar o valor que o usuário selecionou
-      const originValue = formData.source || lead?.origin || lead?.source || 'manual';
+      // Não sobrescrever - usar o valor que o usuário selecionou
+      // Se não tiver origem selecionada, usar a existente ou 'outro' como padrão
+      const originValue = formData.source || lead?.origin || lead?.source || 'outro';
+      
+      if (!originValue || originValue === 'manual') {
+        throw new Error('Origem do lead é obrigatória. Selecione uma origem válida.');
+      }
       
       console.log('💾 Salvando origem do lead:', {
         formData_source: formData.source,
@@ -510,6 +515,31 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         .eq('tenant_id', user!.tenant_id);
 
       if (updateError) throw updateError;
+
+      // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se a atualização foi realmente salva no banco
+      const { data: verifyLead, error: verifyError } = await supabase
+        .from('leads')
+        .select('id, origin, source')
+        .eq('id', lead!.id)
+        .single();
+
+      if (verifyError || !verifyLead) {
+        throw new Error('Erro ao verificar lead no banco de dados. A atualização pode não ter sido salva corretamente.');
+      }
+
+      if (verifyLead.origin !== originValue) {
+        console.error('❌ ERRO: Origem não foi salva corretamente!', {
+          esperado: originValue,
+          salvo: verifyLead.origin
+        });
+        throw new Error(`Origem não foi salva corretamente. Esperado: ${originValue}, Salvo: ${verifyLead.origin}`);
+      }
+
+      console.log('✅ Lead atualizado e verificado no banco:', {
+        id: verifyLead.id,
+        origin: verifyLead.origin,
+        source: verifyLead.source
+      });
 
       // SEMPRE tentar atualizar orçamentos (abertos ou vendidos) na tabela budget_documents
       // E também atualizar a tabela sales se o lead estiver vendido
@@ -823,23 +853,20 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="source" className="text-slate-900 dark:text-white font-medium">Fonte</Label>
+              <Label htmlFor="source" className="text-slate-900 dark:text-white font-medium">Origem *</Label>
               <Select value={formData.source} onValueChange={(value) => setFormData({ ...formData, source: value })}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione a fonte" />
+                  <SelectValue placeholder="Selecione a origem" />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-700">
                   <SelectItem value="meta_ads">Meta Ads</SelectItem>
-                  <SelectItem value="instagram">Instagram (Direct)</SelectItem>
-                  <SelectItem value="facebook">Facebook (Messenger FB)</SelectItem>
+                  <SelectItem value="instagram">Instagram</SelectItem>
                   <SelectItem value="site">Site</SelectItem>
-                  <SelectItem value="loja">Loja</SelectItem>
+                  <SelectItem value="google">Google</SelectItem>
                   <SelectItem value="tiktok">TikTok</SelectItem>
-                  <SelectItem value="linkedin">LinkedIn</SelectItem>
                   <SelectItem value="indicacao">Indicação</SelectItem>
-                  <SelectItem value="manual">Manual</SelectItem>
                   <SelectItem value="carteirizado">Carteirizado</SelectItem>
-                  <SelectItem value="cliente_carteirizado">Cliente Carteirizado</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>

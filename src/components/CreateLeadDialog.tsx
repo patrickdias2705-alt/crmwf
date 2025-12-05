@@ -24,7 +24,7 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
     name: '',
     phone: '',
     email: '',
-    origin: 'manual',
+    origin: '',
     category: 'varejo',
     order_number: '',
     classification: 'curva_a'
@@ -322,7 +322,8 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
           name: formData.name,
           phone: formData.phone,
           email: formData.email || null,
-          origin: formData.origin,
+          origin: formData.origin || 'outro', // Garantir que sempre tenha uma origem válida
+          source: formData.origin || 'outro', // Manter sincronizado
           tenant_id: user.tenant_id,
           pipeline_id: pipelines.id,
           stage_id: stage.id,
@@ -341,6 +342,28 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
 
       if (error) throw error;
 
+      // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se o lead foi realmente criado no banco
+      if (!lead || !lead.id) {
+        throw new Error('Lead não foi criado no banco de dados. Tente novamente.');
+      }
+
+      // Verificar novamente no banco para garantir que foi salvo
+      const { data: verifyLead, error: verifyError } = await supabase
+        .from('leads')
+        .select('id, origin, source')
+        .eq('id', lead.id)
+        .single();
+
+      if (verifyError || !verifyLead) {
+        throw new Error('Erro ao verificar lead no banco de dados. O lead pode não ter sido salvo corretamente.');
+      }
+
+      console.log('✅ Lead criado e verificado no banco:', {
+        id: verifyLead.id,
+        origin: verifyLead.origin,
+        source: verifyLead.source
+      });
+
       // Log event
       await supabase.from('lead_events').insert({
         tenant_id: user.tenant_id,
@@ -349,14 +372,14 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
         actor: 'user',
         user_id: user.id, // CORREÇÃO: Adicionar user_id
         data: { 
-          origin: formData.origin, 
+          origin: formData.origin || verifyLead.origin, 
           classification: formData.classification
         }
       });
 
       toast.success('Lead criado com sucesso!');
       clearPersistedData(); // Limpar dados persistidos após sucesso
-      setFormData({ name: '', phone: '', email: '', origin: 'manual', category: 'varejo', order_number: '', classification: 'curva_a' });
+      setFormData({ name: '', phone: '', email: '', origin: '', category: 'varejo', order_number: '', classification: 'curva_a' });
       setUserIntentionallyClosed(true); // Marcar como fechamento intencional
       setInternalOpen(false);
       onLeadCreated?.();
@@ -511,13 +534,14 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
                 <Label htmlFor="origin">Origem do Lead *</Label>
                 <Select value={formData.origin} onValueChange={(value) => setFormData(prev => ({ ...prev, origin: value }))}>
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Selecione a origem" />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-700">
-                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="meta_ads">Meta Ads</SelectItem>
                     <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
                     <SelectItem value="site">Site</SelectItem>
+                    <SelectItem value="google">Google</SelectItem>
+                    <SelectItem value="tiktok">TikTok</SelectItem>
                     <SelectItem value="indicacao">Indicação</SelectItem>
                     <SelectItem value="carteirizado">Carteirizado</SelectItem>
                     <SelectItem value="outro">Outro</SelectItem>

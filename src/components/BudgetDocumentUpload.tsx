@@ -161,7 +161,40 @@ export function BudgetDocumentUpload({
             return; // NÃO SALVAR EM LUGAR NENHUM SE DER ERRO
           }
 
-          console.log('✅ Orçamento salvo na tabela budget_documents (status: aberto)', insertedBudget);
+          // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se o orçamento foi realmente salvo no banco
+          if (!insertedBudget || !insertedBudget.id) {
+            console.error('❌ ERRO: Orçamento não foi criado no banco de dados');
+            toast.error('Erro: Orçamento não foi salvo no banco. Tente novamente.');
+            return;
+          }
+
+          // Verificar novamente no banco para garantir que foi salvo
+          const { data: verifyBudget, error: verifyError } = await supabase
+            .from('budget_documents')
+            .select('id, file_name, file_base64, file_url, amount, status')
+            .eq('id', insertedBudget.id)
+            .single();
+
+          if (verifyError || !verifyBudget) {
+            console.error('❌ ERRO: Orçamento criado mas não encontrado no banco!', verifyError);
+            toast.error('Erro: Orçamento não foi verificado no banco. O documento pode não estar disponível.');
+            return;
+          }
+
+          // Validar que o arquivo foi salvo corretamente
+          if (!verifyBudget.file_base64 && !verifyBudget.file_url) {
+            console.error('❌ ERRO: Arquivo não foi salvo no banco!');
+            toast.error('Erro: O arquivo PDF não foi salvo corretamente. Tente fazer upload novamente.');
+            return;
+          }
+
+          console.log('✅ Orçamento salvo e verificado no banco:', {
+            id: verifyBudget.id,
+            file_name: verifyBudget.file_name,
+            has_file: !!(verifyBudget.file_base64 || verifyBudget.file_url),
+            amount: verifyBudget.amount,
+            status: verifyBudget.status
+          });
           
           // Se for recompra, garantir que o lead está como "carteirizado"
           if (isRepurchase) {
@@ -181,8 +214,8 @@ export function BudgetDocumentUpload({
             }
           }
           
-          toast.success(isRepurchase ? 'Recompra registrada com sucesso!' : 'Orçamento salvo no banco de dados!', {
-            description: `Status: aberto | Valor: R$ ${parseFloat(formData.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          toast.success(isRepurchase ? 'Recompra registrada com sucesso!' : 'Orçamento salvo e verificado no banco de dados!', {
+            description: `Status: aberto | Valor: R$ ${parseFloat(formData.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} | Arquivo: ${verifyBudget.file_name}`,
             duration: 5000
           });
 
@@ -190,9 +223,11 @@ export function BudgetDocumentUpload({
           setFormData({ description: '', amount: '', file: null });
           setOpen(false);
           
-          // Recarregar documentos para atualizar a lista
-          await fetchDocuments();
-          onDocumentUploaded?.();
+          // Recarregar documentos para atualizar a lista (aguardar um pouco para garantir que o banco processou)
+          setTimeout(async () => {
+            await fetchDocuments();
+            onDocumentUploaded?.();
+          }, 500);
 
         } catch (dbError) {
           console.error('❌ Erro no banco:', dbError);

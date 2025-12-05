@@ -585,9 +585,9 @@ export default function Leads() {
                                 📝 {lead.budget_documents[0].description}
                               </div>
                             )}
-                            {/* Sempre mostrar botão de download se tiver file_name - padronizado */}
-                            {lead.budget_documents[0].file_name ? (
-                              (lead.budget_documents[0].file_base64 || lead.budget_documents[0].file_url) ? (
+                            {/* ⚠️ VALIDAÇÃO CRÍTICA: Só mostrar botão se arquivo estiver realmente salvo no banco */}
+                            {lead.budget_documents[0].file_name && 
+                             (lead.budget_documents[0].file_base64 || lead.budget_documents[0].file_url) ? (
                                 <button 
                                   onClick={() => {
                                     const budget = lead.budget_documents![0];
@@ -602,27 +602,20 @@ export default function Leads() {
                                       document.body.appendChild(link);
                                       link.click();
                                       document.body.removeChild(link);
+                                    } else {
+                                      toast.error('Arquivo não disponível. O documento não foi salvo corretamente no banco de dados.');
                                     }
                                   }}
                                   className="text-xs bg-green-600 text-white px-2 py-1 rounded hover:bg-green-700"
+                                  title="Baixar PDF do orçamento"
                                 >
                                   📄 Baixar PDF
                                 </button>
                               ) : (
-                                // Se tem file_name mas não tem arquivo disponível, ainda mostrar botão (padronizado)
-                                <button 
-                                  onClick={() => {
-                                    toast.info('Arquivo não disponível para download. O documento pode ter sido removido após a venda.');
-                                  }}
-                                  className="text-xs bg-gray-400 text-white px-2 py-1 rounded hover:bg-gray-500 cursor-not-allowed"
-                                  title="Arquivo não disponível"
-                                >
-                                  📄 Baixar PDF
-                                </button>
+                                // Se tem file_name mas não tem arquivo disponível, NÃO mostrar botão
+                                <span className="text-xs text-muted-foreground">Documento não disponível</span>
                               )
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Sem documento</span>
-                            )}
+                            }
                           </div>
                         ) : lead.fields?.budget_file_base64 ? (
                           // Fallback para dados antigos em fields
