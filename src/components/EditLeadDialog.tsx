@@ -541,11 +541,11 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
         source: verifyLead.source
       });
 
-      // ⚠️ CRÍTICO: SEMPRE verificar e atualizar vendas na tabela sales PRIMEIRO
-      // Isso garante que vendas sejam atualizadas mesmo se budget_documents não tiver sale_id
+      // ⚠️ CRÍTICO: SEMPRE atualizar a tabela sales PRIMEIRO se o lead estiver vendido
+      // Isso garante que o valor da venda seja atualizado independente de ter budget_documents
       let saleUpdated = false;
       try {
-        console.log('🔍 Verificando se lead tem venda na tabela sales...');
+        // Buscar venda na tabela sales diretamente (prioridade)
         const { data: salesData, error: salesCheckError } = await supabase
           .from('sales')
           .select('id, amount, budget_description')
@@ -555,7 +555,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           .maybeSingle();
 
         if (!salesCheckError && salesData) {
-          console.log('✅ Venda encontrada na tabela sales, atualizando valor...', {
+          console.log('💾 VENDA ENCONTRADA na tabela sales, atualizando valor...', {
             sale_id: salesData.id,
             valor_atual: salesData.amount,
             novo_valor: formData.budget_amount
@@ -566,7 +566,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             const newAmount = parseFloat(formData.budget_amount);
             if (!isNaN(newAmount)) {
               saleUpdateData.amount = newAmount;
-              console.log(`🔄 SUBSTITUINDO valor da venda: ${salesData.amount} → ${newAmount}`);
+              console.log(`🔄 SUBSTITUINDO valor da venda na tabela sales: ${salesData.amount} → ${newAmount}`);
             }
           }
           if (formData.budget_description !== undefined) {
@@ -574,7 +574,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
           }
 
           if (Object.keys(saleUpdateData).length > 0) {
-            console.log('💾 Atualizando venda na tabela sales:', saleUpdateData);
+            console.log('💾 ATUALIZANDO venda na tabela sales (UPDATE):', saleUpdateData);
             const { error: saleUpdateError } = await supabase
               .from('sales')
               .update(saleUpdateData)
@@ -585,7 +585,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
               throw new Error(`Erro ao atualizar valor da venda: ${saleUpdateError.message}`);
             }
 
-            // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se a venda foi realmente atualizada
+            // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se a venda foi realmente atualizada no banco
             const { data: verifySale, error: verifySaleError } = await supabase
               .from('sales')
               .select('id, amount, budget_description')
@@ -610,7 +610,7 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
               }
             }
 
-            console.log('✅ Venda atualizada e verificada no banco:', {
+            console.log('✅ Venda atualizada e verificada no banco (tabela sales):', {
               id: verifySale.id,
               amount: verifySale.amount,
               budget_description: verifySale.budget_description
@@ -618,27 +618,26 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
             saleUpdated = true;
           }
         } else if (salesCheckError) {
-          console.warn('⚠️ Erro ao verificar venda na tabela sales:', salesCheckError);
-        } else {
-          console.log('ℹ️ Lead não tem venda na tabela sales');
+          console.warn('⚠️ Erro ao buscar venda na tabela sales:', salesCheckError);
         }
       } catch (salesUpdateError: any) {
-        console.error('❌ ERRO ao atualizar venda:', salesUpdateError);
-        // Se é um erro crítico, propagar
+        console.error('❌ ERRO ao atualizar venda na tabela sales:', salesUpdateError);
+        // Se é um erro que lançamos (throw), propagar
         if (salesUpdateError instanceof Error && salesUpdateError.message.includes('Erro ao')) {
           throw salesUpdateError;
         }
-        // Caso contrário, apenas logar e continuar
-        console.warn('⚠️ Aviso: Não foi possível atualizar venda, mas continuando com atualização de orçamento');
+        // Caso contrário, lançar erro genérico
+        throw new Error(`Erro ao atualizar venda: ${salesUpdateError?.message || 'Erro desconhecido'}`);
       }
 
       // SEMPRE tentar atualizar orçamentos (abertos ou vendidos) na tabela budget_documents
+      // E também atualizar a tabela sales se o lead estiver vendido (caso não tenha atualizado acima)
       // Isso permite corrigir valores mesmo que sejam 0 ou vazios
         try {
         // Buscar orçamentos (abertos ou vendidos) para este lead
           const { data: budgetDocs, error: budgetError } = await supabase
             .from('budget_documents')
-            .select('id, amount, description, status, sale_id')
+          .select('id, amount, description, status, sale_id')
             .eq('lead_id', lead!.id)
           .in('status', ['aberto', 'vendido'])
             .order('created_at', { ascending: false })
@@ -709,16 +708,17 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                 description: verifyBudget.description
               });
               
-              // Se o orçamento está vendido e tem sale_id, garantir que a venda também foi atualizada
-              // (já atualizamos acima, mas vamos verificar se está sincronizado)
-              if (budgetDocs[0].status === 'vendido' && budgetDocs[0].sale_id && !saleUpdated) {
-                console.log('⚠️ Orçamento está vendido mas venda não foi atualizada, tentando atualizar via sale_id...');
+              // Se o orçamento está vendido e ainda não atualizamos a venda, atualizar via sale_id
+              // IMPORTANTE: Sempre UPDATE (substituição), nunca INSERT (criação de duplicata)
+              if (!saleUpdated && budgetDocs[0].status === 'vendido' && budgetDocs[0].sale_id) {
                 try {
                   const saleUpdateData: any = {};
                   if (formData.budget_amount !== undefined && formData.budget_amount !== null && formData.budget_amount !== '') {
                     const newAmount = parseFloat(formData.budget_amount);
                     if (!isNaN(newAmount)) {
+                      // SUBSTITUIR o valor existente pelo novo valor
                       saleUpdateData.amount = newAmount;
+                      console.log(`🔄 SUBSTITUINDO valor da venda via sale_id: → ${newAmount}`);
                     }
                   }
                   if (formData.budget_description !== undefined) {
@@ -726,19 +726,59 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                   }
 
                   if (Object.keys(saleUpdateData).length > 0) {
+                    console.log('💾 SUBSTITUINDO venda na tabela sales via sale_id (UPDATE, não INSERT):', saleUpdateData);
+                    // IMPORTANTE: Usar UPDATE com .eq() para garantir que atualiza apenas o registro existente
+                    // Nunca usar INSERT aqui para evitar duplicatas
                     const { error: saleUpdateError } = await supabase
                       .from('sales')
-                      .update(saleUpdateData)
-                      .eq('id', budgetDocs[0].sale_id);
+                      .update(saleUpdateData) // UPDATE sempre substitui, nunca soma
+                      .eq('id', budgetDocs[0].sale_id); // Atualizar apenas o registro específico
 
                     if (saleUpdateError) {
-                      console.warn('⚠️ Aviso: Não foi possível atualizar venda via sale_id:', saleUpdateError);
-                    } else {
-                      console.log('✅ Venda atualizada via sale_id do orçamento');
+                      console.error('❌ ERRO ao atualizar venda na tabela sales:', saleUpdateError);
+                      throw new Error(`Erro ao atualizar valor da venda: ${saleUpdateError.message}`);
                     }
+
+                    // ⚠️ VALIDAÇÃO CRÍTICA: Verificar se a venda foi realmente atualizada no banco
+                    const { data: verifySale, error: verifySaleError } = await supabase
+                      .from('sales')
+                      .select('id, amount, budget_description')
+                      .eq('id', budgetDocs[0].sale_id)
+                      .single();
+
+                    if (verifySaleError || !verifySale) {
+                      console.error('❌ ERRO: Venda não foi encontrada após atualização!', verifySaleError);
+                      throw new Error('Erro ao verificar venda no banco. A atualização pode não ter sido salva.');
+                    }
+
+                    // Verificar se o valor foi realmente atualizado
+                    if (saleUpdateData.amount !== undefined) {
+                      const savedAmount = parseFloat(verifySale.amount?.toString() || '0');
+                      const expectedAmount = parseFloat(saleUpdateData.amount.toString());
+                      if (Math.abs(savedAmount - expectedAmount) > 0.01) {
+                        console.error('❌ ERRO: Valor da venda não foi salvo corretamente!', {
+                          esperado: expectedAmount,
+                          salvo: savedAmount
+                        });
+                        throw new Error(`Valor da venda não foi salvo corretamente. Esperado: R$ ${expectedAmount.toFixed(2)}, Salvo: R$ ${savedAmount.toFixed(2)}`);
+                      }
+                    }
+
+                    console.log('✅ Venda atualizada e verificada no banco (via sale_id):', {
+                      id: verifySale.id,
+                      amount: verifySale.amount,
+                      budget_description: verifySale.budget_description
+                    });
+                    saleUpdated = true;
                   }
                 } catch (saleUpdateError: any) {
-                  console.warn('⚠️ Aviso: Erro ao atualizar venda via sale_id:', saleUpdateError);
+                  console.error('❌ ERRO ao atualizar venda na tabela sales:', saleUpdateError);
+                  // Se é um erro que lançamos (throw), propagar
+                  if (saleUpdateError instanceof Error && saleUpdateError.message.includes('Erro ao')) {
+                    throw saleUpdateError;
+                  }
+                  // Caso contrário, lançar erro genérico
+                  throw new Error(`Erro ao atualizar venda: ${saleUpdateError?.message || 'Erro desconhecido'}`);
                 }
               }
             }
