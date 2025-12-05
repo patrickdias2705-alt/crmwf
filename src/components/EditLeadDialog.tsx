@@ -773,15 +773,14 @@ export function EditLeadDialog({ open: externalOpen, onOpenChange, lead, onSucce
                 }
               }
             }
+          } else if (budgetError) {
+            console.error('❌ ERRO ao buscar orçamento para atualização:', budgetError);
+            // Se estava tentando atualizar um valor mas não encontrou orçamento, avisar
+            if (formData.budget_amount && formData.budget_amount.trim() !== '') {
+              throw new Error(`Erro ao buscar orçamento para atualizar valor: ${budgetError.message}`);
+            }
           }
-        } else if (budgetError) {
-          console.error('❌ ERRO ao buscar orçamento para atualização:', budgetError);
-          // Se estava tentando atualizar um valor mas não encontrou orçamento, avisar
-          if (formData.budget_amount && formData.budget_amount.trim() !== '') {
-            throw new Error(`Erro ao buscar orçamento para atualizar valor: ${budgetError.message}`);
-          }
-        }
-      } catch (budgetUpdateError: any) {
+        } catch (budgetUpdateError: any) {
         console.error('❌ ERRO ao atualizar orçamento na tabela budget_documents:', budgetUpdateError);
         // Se é um erro que lançamos (throw), propagar
         if (budgetUpdateError instanceof Error && budgetUpdateError.message.includes('Erro ao')) {
