@@ -285,6 +285,12 @@ export function CreateLeadDialog({ onLeadCreated }: CreateLeadDialogProps) {
       return;
     }
 
+    // ⚠️ VALIDAÇÃO: Origem é obrigatória
+    if (!formData.origin || formData.origin.trim() === '') {
+      toast.error('Origem do lead é obrigatória. Selecione uma origem válida.');
+      return;
+    }
+
     setLoading(true);
     try {
       // Get default pipeline and "Novo Lead" stage
